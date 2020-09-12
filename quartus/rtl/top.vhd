@@ -51,8 +51,8 @@ entity top is
 
     -- SDRAM interface
     sdram_clk   : out std_logic;
-    sdram_cke   : out std_logic;
     sdram_cs_n  : out std_logic;
+    sdram_cke   : out std_logic;
     sdram_ras_n : out std_logic;
     sdram_cas_n : out std_logic;
     sdram_we_n  : out std_logic;
@@ -65,6 +65,10 @@ entity top is
 end top;
 
 architecture arch of top is
+  signal sdram_ras : std_logic;
+  signal sdram_cas : std_logic;
+  signal sdram_we  : std_logic;
+
   component Demo is
     port (
       clock          : in std_logic;
@@ -87,12 +91,20 @@ begin
     reset          => not key(0),
     io_led         => led,
     io_sdram_cen   => sdram_cke,
-    io_sdram_ras   => sdram_ras_n,
-    io_sdram_cas   => sdram_cas_n,
-    io_sdram_we    => sdram_we_n,
+    io_sdram_ras   => sdram_ras,
+    io_sdram_cas   => sdram_cas,
+    io_sdram_we    => sdram_we,
     io_sdram_bank  => sdram_ba,
     io_sdram_addr  => sdram_a,
     io_sdram_din   => sdram_dq,
     io_sdram_dout  => sdram_dq
   );
+
+  sdram_clk <= clk;
+  sdram_cs_n <= '0';
+  sdram_ras_n <= not sdram_ras;
+  sdram_cas_n <= not sdram_cas;
+  sdram_we_n <= not sdram_we;
+  sdram_dqml <= '0';
+  sdram_dqmh <= '0';
 end arch;
