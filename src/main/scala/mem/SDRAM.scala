@@ -332,7 +332,7 @@ class SDRAM(config: SDRAMConfig) extends Module {
     // Execute a refresh command
     is(stRefresh) {
       when(refreshDone) {
-        when(io.mem.req || io.mem.we) {
+        when(io.mem.req) {
           nextCmd := cmdActive
           nextState := stActive
         }.otherwise {
