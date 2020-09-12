@@ -1,11 +1,11 @@
-.PHONY: build test program clean
+.PHONY: test build program clean
+
+test:
+	sbt test
 
 build:
 	sbt compile run
 	cd quartus; quartus_sh --flow compile sdram
-
-test:
-	sbt test
 
 program:
 	cd quartus; quartus_pgm -m jtag -c 1 -o "p;output_files/sdram.sof@2"
