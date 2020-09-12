@@ -72,6 +72,11 @@ class SDRAMIO(bankWidth: Int, addrWidth: Int, dataWidth: Int) extends Bundle {
  * Represents the SDRAM configuration.
  *
  * @param clockFreq The SDRAM clock frequency (MHz).
+ * @param addrWidth The address bus width.
+ * @param dataWidth The data bus width.
+ * @param bankWidth The bank width.
+ * @param rowWidth The row width.
+ * @param colWidth The column width.
  * @param burstLength The number of words to be transferred during a read/write.
  * @param burstType The burst type (0=sequential, 1=interleaved).
  * @param casLatency The delay in clock cycles, between the start of a read
@@ -86,6 +91,11 @@ class SDRAMIO(bankWidth: Int, addrWidth: Int, dataWidth: Int) extends Bundle {
  * @param tREFI The average refresh interval (ns).
  */
 case class SDRAMConfig(clockFreq: Double = 100,
+                       addrWidth: Int = 13,
+                       dataWidth: Int = 16,
+                       bankWidth: Int = 2,
+                       rowWidth: Int = 13,
+                       colWidth: Int = 9,
                        burstLength: Int = 1,
                        burstType: Int = 0,
                        casLatency: Int = 2,
@@ -97,6 +107,12 @@ case class SDRAMConfig(clockFreq: Double = 100,
                        tRP: Double = 18,
                        tWR: Double = 12,
                        tREFI: Double = 7800) {
+  /** The virtual address bus width (i.e. the full width of the address space). */
+  val virtualAddrWidth = bankWidth+rowWidth+colWidth
+
+  /** The virtual data bus width (i.e. the width of the word bursted from SDRAM). */
+  val virtualDataWidth = dataWidth*burstLength
+
   /** The SDRAM clock period (ns). */
   val clockPeriod = 1/clockFreq*1000
 
@@ -155,19 +171,11 @@ object AsyncReadWriteMemIO {
  * @param config The SDRAM configuration.
  */
 class SDRAM(config: SDRAMConfig) extends Module {
-  val SDRAM_ADDR_WIDTH = 13
-  val SDRAM_DATA_WIDTH = 16
-  val BANK_WIDTH = 2
-  val ROW_WIDTH = 13
-  val COL_WIDTH = 9
-  val ADDR_WIDTH = BANK_WIDTH+ROW_WIDTH+COL_WIDTH
-  val DATA_WIDTH = SDRAM_DATA_WIDTH*config.burstLength
-
   val io = IO(new Bundle {
     /** Memory port */
-    val mem = Flipped(AsyncReadWriteMemIO(ADDR_WIDTH, DATA_WIDTH))
+    val mem = Flipped(AsyncReadWriteMemIO(config.virtualAddrWidth, config.virtualDataWidth))
     /** SDRAM port */
-    val sdram = new SDRAMIO(BANK_WIDTH, SDRAM_ADDR_WIDTH, SDRAM_DATA_WIDTH)
+    val sdram = new SDRAMIO(config.bankWidth, config.addrWidth, config.dataWidth)
     /** Debug port */
     val debug = new Bundle {
       val init = Output(Bool())
@@ -196,8 +204,8 @@ class SDRAM(config: SDRAMConfig) extends Module {
   val stateReg = RegNext(nextState, stInit)
   val cmdReg = RegNext(nextCmd, cmdNop)
   val weReg = RegEnable(io.mem.we, latchRequest)
-  val addrReg = RegEnable(io.mem.addr, 0.U(ADDR_WIDTH.W), latchRequest)
-  val dataReg = Reg(Vec(config.burstLength, UInt(SDRAM_DATA_WIDTH.W)))
+  val addrReg = RegEnable(io.mem.addr, 0.U(config.virtualAddrWidth.W), latchRequest)
+  val dataReg = Reg(Vec(config.burstLength, UInt(config.dataWidth.W)))
 
   // Set mode opcode
   val mode =
@@ -209,9 +217,9 @@ class SDRAM(config: SDRAMConfig) extends Module {
     log2Up(config.burstLength).U(3.W)
 
   // Extract the address components
-  val bank = addrReg(COL_WIDTH+ROW_WIDTH+BANK_WIDTH-1, COL_WIDTH+ROW_WIDTH)
-  val row = addrReg(COL_WIDTH+ROW_WIDTH-1, COL_WIDTH)
-  val col = addrReg(COL_WIDTH-1, 0)
+  val bank = addrReg(config.colWidth+config.rowWidth+config.bankWidth-1, config.colWidth+config.rowWidth)
+  val row = addrReg(config.colWidth+config.rowWidth-1, config.colWidth)
+  val col = addrReg(config.colWidth-1, 0)
 
   // Counters
   val (waitCounterValue, _) = Counter(0 until 32768, reset = nextState =/= stateReg)
@@ -242,7 +250,7 @@ class SDRAM(config: SDRAMConfig) extends Module {
   // and assigned to the data register.
   when(latchRequest && io.mem.we) {
     dataReg := Seq.tabulate(config.burstLength) { n =>
-      io.mem.din(((n+1)*SDRAM_DATA_WIDTH)-1, n*SDRAM_DATA_WIDTH)
+      io.mem.din(((n+1)*config.dataWidth)-1, n*config.dataWidth)
     }
   }
 

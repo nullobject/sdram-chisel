@@ -43,13 +43,13 @@ import mem._
 /** This is the top-level module for the SDRAM circuit. */
 class Demo extends Module {
   val CLOCK_FREQ = 50
-  val SDRAM_ADDR_WIDTH = 13
-  val SDRAM_DATA_WIDTH = 16
-  val BANK_WIDTH = 2
+
+  // SDRAM configuration
+  val config = SDRAMConfig(clockFreq = CLOCK_FREQ)
 
   val io = IO(new Bundle {
     val led = Output(UInt(8.W))
-    val sdram = new SDRAMIO(BANK_WIDTH, SDRAM_ADDR_WIDTH, SDRAM_DATA_WIDTH)
+    val sdram = new SDRAMIO(config.bankWidth, config.addrWidth, config.dataWidth)
   })
 
   // States
@@ -62,9 +62,6 @@ class Demo extends Module {
   // Counters
   val (_, waitCounterWrap) = Counter(0 until CLOCK_FREQ*100000)
   val (addrCounterValue, addrCounterWrap) = Counter(0 until 256, enable = stateReg === read && waitCounterWrap)
-
-  // SDRAM configuration
-  val config = SDRAMConfig(clockFreq = CLOCK_FREQ)
 
   // SDRAM
   val sdram = Module(new SDRAM(config))
