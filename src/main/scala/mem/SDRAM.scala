@@ -155,13 +155,13 @@ object AsyncReadWriteMemIO {
  * @param config The SDRAM configuration.
  */
 class SDRAM(config: SDRAMConfig) extends Module {
-  val SDRAM_ADDR_WIDTH: Int = 13
-  val SDRAM_DATA_WIDTH: Int = 16
-  val BANK_WIDTH: Int = 2
-  val ROW_WIDTH: Int = 13
-  val COL_WIDTH: Int = 9
-  val ADDR_WIDTH: Int = BANK_WIDTH+ROW_WIDTH+COL_WIDTH
-  val DATA_WIDTH: Int = SDRAM_DATA_WIDTH*config.burstLength
+  val SDRAM_ADDR_WIDTH = 13
+  val SDRAM_DATA_WIDTH = 16
+  val BANK_WIDTH = 2
+  val ROW_WIDTH = 13
+  val COL_WIDTH = 9
+  val ADDR_WIDTH = BANK_WIDTH+ROW_WIDTH+COL_WIDTH
+  val DATA_WIDTH = SDRAM_DATA_WIDTH*config.burstLength
 
   val io = IO(new Bundle {
     /** Memory port */

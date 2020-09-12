@@ -37,28 +37,59 @@
 
 import chisel3._
 import chisel3.stage.{ChiselGeneratorAnnotation, ChiselStage}
-import mem.SDRAMIO
+import chisel3.util._
+import mem._
 
-/** This is the top-level module for the sound circuit. */
+/** This is the top-level module for the SDRAM circuit. */
 class Demo extends Module {
-  val SDRAM_ADDR_WIDTH: Int = 13
-  val SDRAM_DATA_WIDTH: Int = 16
-  val BANK_WIDTH: Int = 2
+  val CLOCK_FREQ = 50
+  val SDRAM_ADDR_WIDTH = 13
+  val SDRAM_DATA_WIDTH = 16
+  val BANK_WIDTH = 2
 
   val io = IO(new Bundle {
     val led = Output(UInt(8.W))
     val sdram = new SDRAMIO(BANK_WIDTH, SDRAM_ADDR_WIDTH, SDRAM_DATA_WIDTH)
   })
 
+  // States
+  val write :: read :: Nil = Enum(2)
+
+  // Registers
+  val stateReg = RegInit(write)
+  val reqReg = RegInit(true.B)
+
+  // Counters
+  val (_, waitCounterWrap) = Counter(0 until CLOCK_FREQ*100000)
+  val (addrCounterValue, addrCounterWrap) = Counter(0 until 256, enable = stateReg === read && waitCounterWrap)
+
+  // SDRAM configuration
+  val config = SDRAMConfig(clockFreq = CLOCK_FREQ)
+
+  // SDRAM
+  val sdram = Module(new SDRAM(config))
+  sdram.io.mem.req := reqReg
+  sdram.io.mem.we := stateReg === write
+  sdram.io.mem.addr := addrCounterValue
+  sdram.io.mem.din := addrCounterValue
+
+  // Disable the request when it is acknowledged
+  when(sdram.io.mem.ack) {
+    reqReg := false.B
+  }
+
+  // Toggle the state when the wait counter wraps
+  when(stateReg === write && waitCounterWrap) {
+    stateReg := read
+    reqReg := true.B
+  }.elsewhen(stateReg === read && waitCounterWrap) {
+    stateReg := write
+    reqReg := true.B
+  }
+
   // Outputs
-  io.led := 170.U
-  io.sdram.cen := 0.U
-  io.sdram.ras := 0.U
-  io.sdram.cas := 0.U
-  io.sdram.we := 0.U
-  io.sdram.bank := 0.U
-  io.sdram.addr := 0.U
-  io.sdram.din := 0.U
+  io.led := RegEnable(sdram.io.mem.dout, 0.U, sdram.io.mem.valid)
+  io.sdram <> sdram.io.sdram
 }
 
 object Demo extends App {
