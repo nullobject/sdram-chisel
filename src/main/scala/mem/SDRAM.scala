@@ -235,7 +235,7 @@ class SDRAM(config: SDRAMConfig) extends Module {
   val readDone = waitCounterValue === (config.readWait-1).U
   val writeDone = waitCounterValue === (config.writeWait-1).U
   val refreshDone = waitCounterValue === (config.refreshWait-1).U
-  val shouldRefresh = refreshCounterValue === (config.refreshInterval-1).U
+  val shouldRefresh = refreshCounterValue >= (config.refreshInterval-1).U
 
   // Latch request during IDLE, READ, WRITE, and REFRESH commands
   latchRequest :=
