@@ -67,7 +67,7 @@ trait SDRAMWaitHelpers {
 class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with SDRAMWaitHelpers {
   val config = SDRAMConfig(
     burstLength = 2,
-    tINIT = 10,
+    tINIT = 20,
     tMRD = 10,
     tRC = 10,
     tRCD = 10,
@@ -80,7 +80,7 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
   it should "move to the mode state after initializing" in {
     test(new SDRAM(config)) { dut =>
       waitForInit(dut)
-      dut.clock.step(4)
+      dut.clock.step(5)
       dut.io.debug.mode.expect(true.B)
     }
   }
@@ -171,12 +171,21 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
   "initialize operation" should "initialize the memory" in {
     test(new SDRAM(config)) { dut =>
       // NOP
+      dut.io.sdram.cs.expect(false.B)
       dut.io.sdram.ras.expect(true.B)
       dut.io.sdram.cas.expect(true.B)
       dut.io.sdram.we.expect(true.B)
       dut.clock.step()
 
+      // Deselect
+      dut.io.sdram.cs.expect(true.B)
+      dut.io.sdram.ras.expect(false.B)
+      dut.io.sdram.cas.expect(false.B)
+      dut.io.sdram.we.expect(false.B)
+      dut.clock.step()
+
       // Precharge
+      dut.io.sdram.cs.expect(false.B)
       dut.io.sdram.ras.expect(false.B)
       dut.io.sdram.cas.expect(true.B)
       dut.io.sdram.we.expect(false.B)
@@ -184,18 +193,21 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
       dut.clock.step()
 
       // Refresh
+      dut.io.sdram.cs.expect(false.B)
       dut.io.sdram.ras.expect(false.B)
       dut.io.sdram.cas.expect(false.B)
       dut.io.sdram.we.expect(true.B)
       dut.clock.step()
 
       // Refresh
+      dut.io.sdram.cs.expect(false.B)
       dut.io.sdram.ras.expect(false.B)
       dut.io.sdram.cas.expect(false.B)
       dut.io.sdram.we.expect(true.B)
       dut.clock.step()
 
       // Mode
+      dut.io.sdram.cs.expect(false.B)
       dut.io.sdram.ras.expect(false.B)
       dut.io.sdram.cas.expect(false.B)
       dut.io.sdram.we.expect(false.B)

@@ -50,12 +50,16 @@ import chisel3.util._
 class SDRAMIO(bankWidth: Int, addrWidth: Int, dataWidth: Int) extends Bundle {
   /** Clock enable */
   val cen = Output(Bool())
+  /** Chip select */
+  val cs = Output(Bool())
   /** Row address strobe */
   val ras = Output(Bool())
   /** Column address strobe */
   val cas = Output(Bool())
   /** Write enable */
   val we = Output(Bool())
+  /** Output enable */
+  val oe = Output(Bool())
   /** Bank bus */
   val bank = Output(UInt(bankWidth.W))
   /** Address bus */
@@ -192,7 +196,7 @@ class SDRAM(config: SDRAMConfig) extends Module {
   val stInit :: stMode :: stIdle :: stActive :: stRead :: stWrite :: stRefresh :: Nil = Enum(7)
 
   // Commands
-  val cmdMode :: cmdRefresh :: cmdPrecharge :: cmdActive :: cmdWrite :: cmdRead :: cmdStop :: cmdNop :: Nil = Enum(8)
+  val cmdMode :: cmdRefresh :: cmdPrecharge :: cmdActive :: cmdWrite :: cmdRead :: cmdStop :: cmdNop :: cmdDeselect :: Nil = Enum(9)
 
   // Wires
   val nextState = WireInit(stInit)
@@ -264,7 +268,9 @@ class SDRAM(config: SDRAMConfig) extends Module {
   switch(stateReg) {
     // Execute the initialization sequence
     is(stInit) {
-      when(waitCounterValue === (config.initWait-1).U) {
+      when(waitCounterValue === 0.U) {
+        nextCmd := cmdDeselect
+      }.elsewhen(waitCounterValue === (config.initWait-1).U) {
         nextCmd := cmdPrecharge
       }.elsewhen(waitCounterValue === (config.initWait+config.prechargeWait-1).U) {
         nextCmd := cmdRefresh
@@ -355,9 +361,11 @@ class SDRAM(config: SDRAMConfig) extends Module {
   io.mem.dout := dataReg.asUInt
   io.mem.valid := RegNext(stateReg === stRead && readDone)
   io.sdram.cen := stateReg === stInit && waitCounterValue === 0.U
+  io.sdram.cs := cmdReg(3)
   io.sdram.ras := cmdReg(2)
   io.sdram.cas := cmdReg(1)
   io.sdram.we := cmdReg(0)
+  io.sdram.oe := stateReg === stWrite
   io.sdram.bank := Mux(stateReg === stActive || stateReg === stRead || stateReg === stWrite, bank, 0.U)
   io.sdram.addr := MuxLookup(stateReg, 0.U, Seq(
     stInit -> "b0010000000000".U,
@@ -375,5 +383,5 @@ class SDRAM(config: SDRAMConfig) extends Module {
   io.debug.write := stateReg === stWrite
   io.debug.refresh := stateReg === stRefresh
 
-  printf(p"SDRAM(state: $stateReg, nextState: $nextState, counter: $waitCounterValue, dout: $dataReg, valid: ${io.mem.valid})\n")
+  printf(p"SDRAM(state: $stateReg, nextState: $nextState, command: $cmdReg, nextCommand: $nextCmd, counter: $waitCounterValue, dout: $dataReg, valid: ${io.mem.valid})\n")
 }

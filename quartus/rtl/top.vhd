@@ -65,19 +65,21 @@ entity top is
 end top;
 
 architecture arch of top is
-  signal sdram_ras : std_logic;
-  signal sdram_cas : std_logic;
-  signal sdram_we  : std_logic;
+  signal sdram_oe   : std_logic;
+  signal sdram_din  : std_logic_vector(15 downto 0);
+  signal sdram_dout : std_logic_vector(15 downto 0);
 
   component Demo is
     port (
       clock          : in std_logic;
       reset          : in std_logic;
       io_led         : out std_logic_vector(7 downto 0);
+      io_sdram_cs    : out std_logic;
       io_sdram_cen   : out std_logic;
       io_sdram_ras   : out std_logic;
       io_sdram_cas   : out std_logic;
       io_sdram_we    : out std_logic;
+      io_sdram_oe    : out std_logic;
       io_sdram_bank  : out unsigned(1 downto 0);
       io_sdram_addr  : out unsigned(12 downto 0);
       io_sdram_din   : out std_logic_vector(15 downto 0);
@@ -91,20 +93,20 @@ begin
     reset          => not key(0),
     io_led         => led,
     io_sdram_cen   => sdram_cke,
-    io_sdram_ras   => sdram_ras,
-    io_sdram_cas   => sdram_cas,
-    io_sdram_we    => sdram_we,
+    io_sdram_cs    => sdram_cs_n,
+    io_sdram_ras   => sdram_ras_n,
+    io_sdram_cas   => sdram_cas_n,
+    io_sdram_we    => sdram_we_n,
+    io_sdram_oe    => sdram_oe,
     io_sdram_bank  => sdram_ba,
     io_sdram_addr  => sdram_a,
-    io_sdram_din   => sdram_dq,
-    io_sdram_dout  => sdram_dq
+    io_sdram_din   => sdram_din,
+    io_sdram_dout  => sdram_dout
   );
 
   sdram_clk <= clk;
-  sdram_cs_n <= '0';
-  sdram_ras_n <= not sdram_ras;
-  sdram_cas_n <= not sdram_cas;
-  sdram_we_n <= not sdram_we;
   sdram_dqml <= '0';
   sdram_dqmh <= '0';
+  sdram_dq <= sdram_din when sdram_oe = '1' else (others => 'Z');
+  sdram_dout <= sdram_dq;
 end arch;
