@@ -49,7 +49,7 @@ import chisel3.util._
  */
 class SDRAMIO(bankWidth: Int, addrWidth: Int, dataWidth: Int) extends Bundle {
   /** Clock enable */
-  val cen = Output(Bool())
+  val cke = Output(Bool())
   /** Chip select */
   val cs = Output(Bool())
   /** Row address strobe */
@@ -360,7 +360,7 @@ class SDRAM(config: SDRAMConfig) extends Module {
   io.mem.ack := stateReg === stActive && waitCounterValue === 0.U
   io.mem.dout := dataReg.asUInt
   io.mem.valid := RegNext(stateReg === stRead && readDone)
-  io.sdram.cen := stateReg === stInit && waitCounterValue === 0.U
+  io.sdram.cke := !(stateReg === stInit && waitCounterValue === 0.U)
   io.sdram.cs := cmdReg(3)
   io.sdram.ras := cmdReg(2)
   io.sdram.cas := cmdReg(1)

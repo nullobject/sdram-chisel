@@ -75,7 +75,7 @@ architecture arch of top is
       reset          : in std_logic;
       io_led         : out std_logic_vector(7 downto 0);
       io_sdram_cs    : out std_logic;
-      io_sdram_cen   : out std_logic;
+      io_sdram_cke   : out std_logic;
       io_sdram_ras   : out std_logic;
       io_sdram_cas   : out std_logic;
       io_sdram_we    : out std_logic;
@@ -92,7 +92,7 @@ begin
     clock          => clk,
     reset          => not key(0),
     io_led         => led,
-    io_sdram_cen   => sdram_cke,
+    io_sdram_cke   => sdram_cke,
     io_sdram_cs    => sdram_cs_n,
     io_sdram_ras   => sdram_ras_n,
     io_sdram_cas   => sdram_cas_n,
