@@ -66,7 +66,7 @@ trait SDRAMWaitHelpers {
 
 class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with SDRAMWaitHelpers {
   val config = SDRAMConfig(
-    burstLength = 2,
+    burstLength = 1,
     tINIT = 20,
     tMRD = 10,
     tRC = 10,
@@ -211,12 +211,36 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
       dut.io.sdram.ras.expect(false.B)
       dut.io.sdram.cas.expect(false.B)
       dut.io.sdram.we.expect(false.B)
-      dut.io.sdram.addr.expect(33.U)
+      dut.io.sdram.addr.expect(32.U)
     }
   }
 
-  "read operation" should "read a word from memory" in {
+  "read operation" should "read a word from memory (burst=1)" in {
     test(new SDRAM(config)) { dut =>
+      // Request read
+      waitForIdle(dut)
+      dut.io.mem.req.poke(true.B)
+      dut.io.mem.addr.poke(1.U)
+      waitForActive(dut)
+      dut.io.mem.req.poke(false.B)
+      waitForRead(dut)
+
+      // Column
+      dut.io.sdram.addr.expect(1025.U)
+
+      // CAS latency
+      dut.clock.step(cycles = 2)
+
+      // Data
+      dut.io.sdram.dout.poke(1.U)
+      dut.clock.step()
+      dut.io.mem.dout.expect(1.U)
+      dut.io.mem.valid.expect(true.B)
+    }
+  }
+
+  "read operation" should "read a word from memory (burst=2)" in {
+    test(new SDRAM(config.copy(burstLength = 2))) { dut =>
       // Request read
       waitForIdle(dut)
       dut.io.mem.req.poke(true.B)
@@ -236,19 +260,19 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
       dut.clock.step()
       dut.io.sdram.dout.poke(2.U)
       dut.clock.step()
-      dut.io.mem.dout.expect("h10002".U)
+      dut.io.mem.dout.expect(65538.U)
       dut.io.mem.valid.expect(true.B)
     }
   }
 
-  "write operation" should "write a word to memory" in {
-    test(new SDRAM(config)) { dut =>
+  "write operation" should "write a word to memory (burst=2)" in {
+    test(new SDRAM(config.copy(burstLength = 2))) { dut =>
       // Request write
       waitForIdle(dut)
       dut.io.mem.req.poke(true.B)
       dut.io.mem.we.poke(true.B)
       dut.io.mem.addr.poke(1.U)
-      dut.io.mem.din.poke("h10002".U)
+      dut.io.mem.din.poke(65538.U)
       waitForActive(dut)
       dut.io.mem.req.poke(false.B)
       waitForWrite(dut)

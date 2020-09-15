@@ -218,7 +218,7 @@ class SDRAM(config: SDRAMConfig) extends Module {
     "b00".U ## // unused
     config.casLatency.U(3.W) ##
     config.burstType.U(1.W) ##
-    log2Up(config.burstLength).U(3.W)
+    log2Ceil(config.burstLength).U(3.W)
 
   // Extract the address components
   val bank = addrReg(config.colWidth+config.rowWidth+config.bankWidth-1, config.colWidth+config.rowWidth)
