@@ -207,7 +207,7 @@ class SDRAM(config: SDRAMConfig) extends Module {
   // Registers
   val stateReg = RegNext(nextState, stInit)
   val cmdReg = RegNext(nextCmd, cmdNop)
-  val weReg = RegEnable(io.mem.wr, latchRequest)
+  val writeReg = RegEnable(io.mem.wr, latchRequest)
   val addrReg = RegEnable(io.mem.addr, 0.U(config.virtualAddrWidth.W), latchRequest)
   val dataReg = Reg(Vec(config.burstLength, UInt(config.dataWidth.W)))
 
@@ -307,7 +307,7 @@ class SDRAM(config: SDRAMConfig) extends Module {
     // Activate the row
     is(stActive) {
       when(activeDone) {
-        when(weReg) {
+        when(writeReg) {
           nextCmd := cmdWrite
           nextState := stWrite
         }.otherwise {
