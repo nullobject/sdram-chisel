@@ -147,8 +147,8 @@ case class SDRAMConfig(clockFreq: Double = 100,
 
 // TODO: Merge into ReadWriteMemIO
 class AsyncReadWriteMemIO private (addrWidth: Int, dataWidth: Int) extends Bundle {
-  /** Request */
-  val req = Output(Bool())
+  /** Read enable */
+  val rd = Output(Bool())
   /** Write enable */
   val wr = Output(Bool())
   /** Acknowledge */
@@ -298,7 +298,7 @@ class SDRAM(config: SDRAMConfig) extends Module {
       when(shouldRefresh) {
         nextCmd := cmdRefresh
         nextState := stRefresh
-      }.elsewhen(io.mem.req) {
+      }.elsewhen(io.mem.rd || io.mem.wr) {
         nextCmd := cmdActive
         nextState := stActive
       }
@@ -323,7 +323,7 @@ class SDRAM(config: SDRAMConfig) extends Module {
         when(shouldRefresh) {
           nextCmd := cmdRefresh
           nextState := stRefresh
-        }.elsewhen(io.mem.req) {
+        }.elsewhen(io.mem.rd) {
           nextCmd := cmdActive
           nextState := stActive
         }.otherwise {
@@ -338,7 +338,7 @@ class SDRAM(config: SDRAMConfig) extends Module {
         when(shouldRefresh) {
           nextCmd := cmdRefresh
           nextState := stRefresh
-        }.elsewhen(io.mem.req) {
+        }.elsewhen(io.mem.rd) {
           nextCmd := cmdActive
           nextState := stActive
         }.otherwise {
@@ -350,7 +350,7 @@ class SDRAM(config: SDRAMConfig) extends Module {
     // Execute a refresh command
     is(stRefresh) {
       when(refreshDone) {
-        when(io.mem.req) {
+        when(io.mem.rd) {
           nextCmd := cmdActive
           nextState := stActive
         }.otherwise {

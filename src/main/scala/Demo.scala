@@ -65,8 +65,8 @@ class Demo extends Module {
 
   // SDRAM
   val sdram = Module(new SDRAM(config))
-  sdram.io.mem.req := !waitEnable
-  sdram.io.mem.wr := stateReg === write
+  sdram.io.mem.rd := stateReg === read && !waitEnable
+  sdram.io.mem.wr := stateReg === write && !waitEnable
   sdram.io.mem.addr := addrCounterValue
   sdram.io.mem.din := addrCounterValue
 

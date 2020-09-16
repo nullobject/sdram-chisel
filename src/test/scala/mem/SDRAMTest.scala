@@ -104,7 +104,7 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
 
   it should "move to the active state" in {
     test(new SDRAM(config)) { dut =>
-      dut.io.mem.req.poke(true.B)
+      dut.io.mem.rd.poke(true.B)
       waitForIdle(dut)
       dut.clock.step()
       dut.io.debug.active.expect(true.B)
@@ -113,7 +113,7 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
 
   it should "assert the ack signal at the beginning of the active state" in {
     test(new SDRAM(config)) { dut =>
-      dut.io.mem.req.poke(true.B)
+      dut.io.mem.rd.poke(true.B)
       waitForActive(dut)
       dut.io.mem.ack.expect(true.B)
     }
@@ -121,7 +121,7 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
 
   it should "move to the read state" in {
     test(new SDRAM(config)) { dut =>
-      dut.io.mem.req.poke(true.B)
+      dut.io.mem.rd.poke(true.B)
       waitForActive(dut)
       dut.clock.step(2)
       dut.io.debug.read.expect(true.B)
@@ -130,7 +130,6 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
 
   it should "move to the write state" in {
     test(new SDRAM(config)) { dut =>
-      dut.io.mem.req.poke(true.B)
       dut.io.mem.wr.poke(true.B)
       waitForActive(dut)
       dut.clock.step(2)
@@ -140,9 +139,9 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
 
   it should "return to the idle state from the read state" in {
     test(new SDRAM(config)) { dut =>
-      dut.io.mem.req.poke(true.B)
+      dut.io.mem.rd.poke(true.B)
       waitForRead(dut)
-      dut.io.mem.req.poke(false.B)
+      dut.io.mem.rd.poke(false.B)
       dut.clock.step(4)
       dut.io.debug.idle.expect(true.B)
     }
@@ -150,10 +149,8 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
 
   it should "return to the idle state from the write state" in {
     test(new SDRAM(config)) { dut =>
-      dut.io.mem.req.poke(true.B)
       dut.io.mem.wr.poke(true.B)
       waitForWrite(dut)
-      dut.io.mem.req.poke(false.B)
       dut.io.mem.wr.poke(false.B)
       dut.clock.step(4)
       dut.io.debug.idle.expect(true.B)
@@ -224,10 +221,10 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
       waitForIdle(dut)
 
       // Request read
-      dut.io.mem.req.poke(true.B)
+      dut.io.mem.rd.poke(true.B)
       dut.io.mem.addr.poke(1.U)
       waitForActive(dut)
-      dut.io.mem.req.poke(false.B)
+      dut.io.mem.rd.poke(false.B)
 
       // Row
       dut.io.sdram.addr.expect(0.U)
@@ -253,10 +250,10 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
       waitForIdle(dut)
 
       // Request read
-      dut.io.mem.req.poke(true.B)
+      dut.io.mem.rd.poke(true.B)
       dut.io.mem.addr.poke(1.U)
       waitForActive(dut)
-      dut.io.mem.req.poke(false.B)
+      dut.io.mem.rd.poke(false.B)
 
       // Row
       dut.io.sdram.addr.expect(0.U)
@@ -286,12 +283,11 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
       waitForIdle(dut)
 
       // Request write
-      dut.io.mem.req.poke(true.B)
       dut.io.mem.wr.poke(true.B)
       dut.io.mem.addr.poke(1.U)
       dut.io.mem.din.poke(1.U)
       waitForActive(dut)
-      dut.io.mem.req.poke(false.B)
+      dut.io.mem.wr.poke(false.B)
 
       // Row
       dut.io.sdram.addr.expect(0.U)
@@ -312,12 +308,11 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
       waitForIdle(dut)
 
       // Request write
-      dut.io.mem.req.poke(true.B)
       dut.io.mem.wr.poke(true.B)
       dut.io.mem.addr.poke(1.U)
       dut.io.mem.din.poke(65538.U)
       waitForActive(dut)
-      dut.io.mem.req.poke(false.B)
+      dut.io.mem.wr.poke(false.B)
 
       // Row
       dut.io.sdram.addr.expect(0.U)
