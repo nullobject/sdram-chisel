@@ -149,10 +149,10 @@ case class SDRAMConfig(clockFreq: Double = 100,
 class AsyncReadWriteMemIO private (addrWidth: Int, dataWidth: Int) extends Bundle {
   /** Request */
   val req = Output(Bool())
+  /** Write enable */
+  val wr = Output(Bool())
   /** Acknowledge */
   val ack = Input(Bool())
-  /** Write enable */
-  val we = Output(Bool())
   /** Address bus */
   val addr = Output(UInt(addrWidth.W))
   /** Data input bus */
@@ -207,7 +207,7 @@ class SDRAM(config: SDRAMConfig) extends Module {
   // Registers
   val stateReg = RegNext(nextState, stInit)
   val cmdReg = RegNext(nextCmd, cmdNop)
-  val weReg = RegEnable(io.mem.we, latchRequest)
+  val weReg = RegEnable(io.mem.wr, latchRequest)
   val addrReg = RegEnable(io.mem.addr, 0.U(config.virtualAddrWidth.W), latchRequest)
   val dataReg = Reg(Vec(config.burstLength, UInt(config.dataWidth.W)))
 
@@ -256,7 +256,7 @@ class SDRAM(config: SDRAMConfig) extends Module {
 
   // Latch input from the memory port. The data is split into words and assigned to the data
   // register.
-  when(latchRequest && io.mem.we) {
+  when(latchRequest && io.mem.wr) {
     dataReg := Seq.tabulate(config.burstLength) { n =>
       io.mem.din(((n+1)*config.dataWidth)-1, n*config.dataWidth)
     }
