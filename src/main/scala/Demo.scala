@@ -57,7 +57,6 @@ class Demo extends Module {
 
   // Registers
   val stateReg = RegInit(write)
-  val reqReg = RegInit(true.B)
   val waitEnable = RegInit(false.B)
 
   // Counters
@@ -66,21 +65,16 @@ class Demo extends Module {
 
   // SDRAM
   val sdram = Module(new SDRAM(config))
-  sdram.io.mem.req := reqReg
+  sdram.io.mem.req := !waitEnable
   sdram.io.mem.we := stateReg === write
   sdram.io.mem.addr := addrCounterValue
   sdram.io.mem.din := addrCounterValue
 
-  // Assert the request register when the wait counter wraps
-  when(waitCounterWrap) {
-    reqReg := true.B
-    waitEnable := false.B
-  }
-
-  // Deassert the request register when the request is acknowledged
+  // Toggle the wait register when the request is acknowledged and when the wait counter wraps
   when(sdram.io.mem.ack) {
-    reqReg := false.B
     waitEnable := true.B
+  }.elsewhen(waitCounterWrap) {
+    waitEnable := false.B
   }
 
   // Move to the write state after the address counter raps
