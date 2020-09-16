@@ -66,13 +66,13 @@ trait SDRAMWaitHelpers {
 
 class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with SDRAMWaitHelpers {
   val config = SDRAMConfig(
-    burstLength = 1,
     tINIT = 20,
     tMRD = 10,
     tRC = 10,
     tRCD = 10,
     tRP = 10,
-    tWR = 10
+    tWR = 10,
+    tREFI = 100
   )
 
   behavior of "FSM"
@@ -168,7 +168,9 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
     }
   }
 
-  "initialize operation" should "initialize the memory" in {
+  behavior of "initialize"
+
+  it should "initialize the SDRAM" in {
     test(new SDRAM(config)) { dut =>
       // NOP
       dut.io.sdram.cs.expect(false.B)
@@ -215,14 +217,20 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
     }
   }
 
-  "read operation" should "read a word from memory (burst=1)" in {
+  behavior of "read"
+
+  it should "read from the SDRAM (burst=1)" in {
     test(new SDRAM(config)) { dut =>
-      // Request read
       waitForIdle(dut)
+
+      // Request read
       dut.io.mem.req.poke(true.B)
       dut.io.mem.addr.poke(1.U)
       waitForActive(dut)
       dut.io.mem.req.poke(false.B)
+
+      // Row
+      dut.io.sdram.addr.expect(0.U)
       waitForRead(dut)
 
       // Column
@@ -236,17 +244,22 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
       dut.clock.step()
       dut.io.mem.dout.expect(1.U)
       dut.io.mem.valid.expect(true.B)
+      dut.io.debug.idle.expect(true.B)
     }
   }
 
-  "read operation" should "read a word from memory (burst=2)" in {
+  it should "read from the SDRAM (burst=2)" in {
     test(new SDRAM(config.copy(burstLength = 2))) { dut =>
-      // Request read
       waitForIdle(dut)
+
+      // Request read
       dut.io.mem.req.poke(true.B)
       dut.io.mem.addr.poke(1.U)
       waitForActive(dut)
       dut.io.mem.req.poke(false.B)
+
+      // Row
+      dut.io.sdram.addr.expect(0.U)
       waitForRead(dut)
 
       // Column
@@ -262,19 +275,52 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
       dut.clock.step()
       dut.io.mem.dout.expect(65538.U)
       dut.io.mem.valid.expect(true.B)
+      dut.io.debug.idle.expect(true.B)
     }
   }
 
-  "write operation" should "write a word to memory (burst=2)" in {
-    test(new SDRAM(config.copy(burstLength = 2))) { dut =>
-      // Request write
+  behavior of "write"
+
+  it should "write to the SDRAM (burst=1)" in {
+    test(new SDRAM(config)) { dut =>
       waitForIdle(dut)
+
+      // Request write
+      dut.io.mem.req.poke(true.B)
+      dut.io.mem.we.poke(true.B)
+      dut.io.mem.addr.poke(1.U)
+      dut.io.mem.din.poke(1.U)
+      waitForActive(dut)
+      dut.io.mem.req.poke(false.B)
+
+      // Row
+      dut.io.sdram.addr.expect(0.U)
+      waitForWrite(dut)
+
+      // Column
+      dut.io.sdram.addr.expect(1025.U)
+
+      // Data
+      dut.io.sdram.din.expect(1.U)
+      dut.clock.step(3)
+      dut.io.debug.idle.expect(true.B)
+    }
+  }
+
+  it should "write to the SDRAM (burst=2)" in {
+    test(new SDRAM(config.copy(burstLength = 2))) { dut =>
+      waitForIdle(dut)
+
+      // Request write
       dut.io.mem.req.poke(true.B)
       dut.io.mem.we.poke(true.B)
       dut.io.mem.addr.poke(1.U)
       dut.io.mem.din.poke(65538.U)
       waitForActive(dut)
       dut.io.mem.req.poke(false.B)
+
+      // Row
+      dut.io.sdram.addr.expect(0.U)
       waitForWrite(dut)
 
       // Column
@@ -284,7 +330,21 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
       dut.io.sdram.din.expect(1.U)
       dut.clock.step()
       dut.io.sdram.din.expect(2.U)
-      dut.clock.step()
+      dut.clock.step(3)
+      dut.io.debug.idle.expect(true.B)
+    }
+  }
+
+  behavior of "refresh"
+
+  it should "refresh the SDRAM after the refresh interval" in {
+    test(new SDRAM(config)) { dut =>
+      waitForIdle(dut)
+      dut.clock.step(10)
+      dut.io.debug.refresh.expect(true.B)
+      waitForIdle(dut)
+      dut.clock.step(10)
+      dut.io.debug.refresh.expect(true.B)
     }
   }
 }

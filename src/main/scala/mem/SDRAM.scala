@@ -199,7 +199,7 @@ class SDRAM(config: SDRAMConfig) extends Module {
   val cmdMode :: cmdRefresh :: cmdPrecharge :: cmdActive :: cmdWrite :: cmdRead :: cmdStop :: cmdNop :: cmdDeselect :: Nil = Enum(9)
 
   // Wires
-  val nextState = WireInit(stInit)
+  val nextState = Wire(UInt())
   val nextCmd = WireInit(cmdNop)
   val latchRequest = WireInit(false.B)
   val latchData = WireInit(false.B)
@@ -226,8 +226,13 @@ class SDRAM(config: SDRAMConfig) extends Module {
   val col = addrReg(config.colWidth-1, 0)
 
   // Counters
-  val (waitCounterValue, _) = Counter(0 until 32768, reset = nextState =/= stateReg)
-  val (refreshCounterValue, _) = Counter(0 until 1024, reset = stateReg === stRefresh && waitCounterValue === 0.U)
+  val (waitCounterValue, _) = Counter(0 until 32768,
+    reset = nextState =/= stateReg
+  )
+  val (refreshCounterValue, _) = Counter(0 until 1024,
+    enable = stateReg =/= stInit && stateReg =/= stMode,
+    reset = stateReg === stRefresh && waitCounterValue === 0.U
+  )
 
   // Flags
   val modeDone = waitCounterValue === (config.modeWait-1).U
@@ -244,14 +249,13 @@ class SDRAM(config: SDRAMConfig) extends Module {
     stateReg === stWrite && writeDone ||
     stateReg === stRefresh && refreshDone
 
-  // Latch output data from the SDRAM port. The output data is shifted into the
-  // data register.
+  // Latch data from the SDRAM port. The data is shifted into the data register.
   when(stateReg === stRead || stateReg === stWrite) {
     dataReg := io.sdram.dout +: dataReg.init
   }
 
-  // Latch input data from the memory port. The input data is split into words
-  // and assigned to the data register.
+  // Latch input from the memory port. The data is split into words and assigned to the data
+  // register.
   when(latchRequest && io.mem.we) {
     dataReg := Seq.tabulate(config.burstLength) { n =>
       io.mem.din(((n+1)*config.dataWidth)-1, n*config.dataWidth)
