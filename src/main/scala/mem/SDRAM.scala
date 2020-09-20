@@ -166,7 +166,7 @@ class AsyncReadWriteMemIO private (addrWidth: Int, dataWidth: Int) extends Bundl
 }
 
 object AsyncReadWriteMemIO {
-  def apply(addrWidth: Int, dataWidth: Int): AsyncReadWriteMemIO = new AsyncReadWriteMemIO(addrWidth, dataWidth)
+  def apply(addrWidth: Int, dataWidth: Int) = new AsyncReadWriteMemIO(addrWidth, dataWidth)
 }
 
 /**
