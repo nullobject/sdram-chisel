@@ -40,9 +40,9 @@ import chisel3.stage.{ChiselGeneratorAnnotation, ChiselStage}
 import chisel3.util._
 import mem._
 
-/** This is the top-level module for the SDRAM circuit. */
+/** This is the top-level module for the demo circuit. */
 class Demo extends Module {
-  val CLOCK_FREQ = 50
+  val CLOCK_FREQ: Double = 50000000
 
   // SDRAM configuration
   val config = SDRAMConfig(clockFreq = CLOCK_FREQ)
@@ -60,7 +60,7 @@ class Demo extends Module {
   val waitEnable = RegInit(false.B)
 
   // Counters
-  val (_, waitCounterWrap) = Counter(0 until CLOCK_FREQ*10000, enable = waitEnable)
+  val (_, waitCounterWrap) = Counter(0 until (CLOCK_FREQ/100).ceil.toInt, enable = waitEnable)
   val (addrCounterValue, addrCounterWrap) = Counter(0 until 256, enable = waitCounterWrap)
 
   // SDRAM
@@ -77,7 +77,7 @@ class Demo extends Module {
     waitEnable := false.B
   }
 
-  // Move to the write state after the address counter raps
+  // Move to the write state after the address counter wraps
   when(addrCounterWrap) { stateReg := read }
 
   // Outputs

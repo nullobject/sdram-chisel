@@ -75,7 +75,7 @@ class SDRAMIO(bankWidth: Int, addrWidth: Int, dataWidth: Int) extends Bundle {
 /**
  * Represents the SDRAM configuration.
  *
- * @param clockFreq The SDRAM clock frequency (MHz).
+ * @param clockFreq The SDRAM clock frequency (Hz).
  * @param addrWidth The address bus width.
  * @param dataWidth The data bus width.
  * @param bankWidth The bank width.
@@ -94,7 +94,7 @@ class SDRAMIO(bankWidth: Int, addrWidth: Int, dataWidth: Int) extends Bundle {
  * @param tWR The write recovery time (ns).
  * @param tREFI The average refresh interval (ns).
  */
-case class SDRAMConfig(clockFreq: Double = 100,
+case class SDRAMConfig(clockFreq: Double = 100000000,
                        addrWidth: Int = 13,
                        dataWidth: Int = 16,
                        bankWidth: Int = 2,
@@ -118,7 +118,7 @@ case class SDRAMConfig(clockFreq: Double = 100,
   val virtualDataWidth = dataWidth*burstLength
 
   /** The SDRAM clock period (ns). */
-  val clockPeriod = 1/clockFreq*1000
+  val clockPeriod = 1/clockFreq*1000000000
 
   /** The number of clock cycles to wait before initializing the device. */
   val initWait = (tINIT/clockPeriod).ceil.toLong
