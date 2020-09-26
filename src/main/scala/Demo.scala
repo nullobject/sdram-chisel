@@ -49,7 +49,7 @@ class Demo extends Module {
 
   val io = IO(new Bundle {
     val led = Output(UInt(8.W))
-    val sdram = new SDRAMIO(config.bankWidth, config.addrWidth, config.dataWidth)
+    val sdram = SDRAMIO(config.bankWidth, config.addrWidth, config.dataWidth)
   })
 
   // States

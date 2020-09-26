@@ -47,7 +47,7 @@ import chisel3.util._
  * @param addrWidth The width of the address bus.
  * @param dataWidth The width of the data bus.
  */
-class SDRAMIO(bankWidth: Int, addrWidth: Int, dataWidth: Int) extends Bundle {
+class SDRAMIO private (bankWidth: Int, addrWidth: Int, dataWidth: Int) extends Bundle {
   /** Clock enable */
   val cke = Output(Bool())
   /** Chip select */
@@ -70,6 +70,10 @@ class SDRAMIO(bankWidth: Int, addrWidth: Int, dataWidth: Int) extends Bundle {
   val dout = Input(Bits(dataWidth.W))
 
   override def cloneType: this.type = new SDRAMIO(bankWidth, addrWidth, dataWidth).asInstanceOf[this.type]
+}
+
+object SDRAMIO {
+  def apply(bankWidth: Int, addrWidth: Int, dataWidth: Int) = new SDRAMIO(bankWidth, addrWidth, dataWidth)
 }
 
 /**
@@ -179,7 +183,7 @@ class SDRAM(config: SDRAMConfig) extends Module {
     /** Memory port */
     val mem = Flipped(AsyncReadWriteMemIO(config.logicalAddrWidth, config.logicalDataWidth))
     /** SDRAM port */
-    val sdram = new SDRAMIO(config.bankWidth, config.addrWidth, config.dataWidth)
+    val sdram = SDRAMIO(config.bankWidth, config.addrWidth, config.dataWidth)
     /** Debug port */
     val debug = new Bundle {
       val init = Output(Bool())
