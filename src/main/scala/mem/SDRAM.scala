@@ -211,7 +211,7 @@ class SDRAM(config: SDRAMConfig) extends Module {
   // Registers
   val stateReg = RegNext(nextState, stInit)
   val cmdReg = RegNext(nextCmd, cmdNop)
-  val writeReg = RegEnable(io.mem.wr, latchRequest)
+  val writeReg = RegEnable(io.mem.wr, false.B, latchRequest)
   val addrReg = RegEnable(io.mem.addr, 0.U(config.logicalAddrWidth.W), latchRequest)
   val dataReg = Reg(Vec(config.burstLength, Bits(config.dataWidth.W)))
 
