@@ -111,11 +111,11 @@ case class SDRAMConfig(clockFreq: Double = 100000000,
                        tRP: Double = 18,
                        tWR: Double = 12,
                        tREFI: Double = 7800) {
-  /** The virtual address bus width (i.e. the full width of the address space). */
-  val virtualAddrWidth = bankWidth+rowWidth+colWidth
+  /** The logical address bus width (i.e. the total width of the address space). */
+  val logicalAddrWidth = bankWidth+rowWidth+colWidth
 
-  /** The virtual data bus width (i.e. the width of the word bursted from SDRAM). */
-  val virtualDataWidth = dataWidth*burstLength
+  /** The logical data bus width (i.e. the total width of all words bursted from SDRAM). */
+  val logicalDataWidth = dataWidth*burstLength
 
   /** The SDRAM clock period (ns). */
   val clockPeriod = 1/clockFreq*1000000000
@@ -177,7 +177,7 @@ object AsyncReadWriteMemIO {
 class SDRAM(config: SDRAMConfig) extends Module {
   val io = IO(new Bundle {
     /** Memory port */
-    val mem = Flipped(AsyncReadWriteMemIO(config.virtualAddrWidth, config.virtualDataWidth))
+    val mem = Flipped(AsyncReadWriteMemIO(config.logicalAddrWidth, config.logicalDataWidth))
     /** SDRAM port */
     val sdram = new SDRAMIO(config.bankWidth, config.addrWidth, config.dataWidth)
     /** Debug port */
@@ -208,7 +208,7 @@ class SDRAM(config: SDRAMConfig) extends Module {
   val stateReg = RegNext(nextState, stInit)
   val cmdReg = RegNext(nextCmd, cmdNop)
   val writeReg = RegEnable(io.mem.wr, latchRequest)
-  val addrReg = RegEnable(io.mem.addr, 0.U(config.virtualAddrWidth.W), latchRequest)
+  val addrReg = RegEnable(io.mem.addr, 0.U(config.logicalAddrWidth.W), latchRequest)
   val dataReg = Reg(Vec(config.burstLength, UInt(config.dataWidth.W)))
 
   // Set mode opcode
