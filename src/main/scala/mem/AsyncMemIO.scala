@@ -40,68 +40,56 @@ package mem
 import chisel3._
 
 /**
- * A simple flow control interface for reading from synchronous memory.
+ * A simple flow control interface for reading from asynchronous memory.
  *
  * @param addrWidth The width of the address bus.
  * @param dataWidth The width of the data bus.
  */
-class ReadMemIO private[mem] (addrWidth: Int, dataWidth: Int) extends Bundle {
-  /** Read enable */
-  val rd = Output(Bool())
-  /** Address bus */
-  val addr = Output(UInt(addrWidth.W))
-  /** Data bus */
-  val dout = Input(UInt(dataWidth.W))
+class AsyncReadMemIO private[mem] (addrWidth: Int, dataWidth: Int) extends ReadMemIO(addrWidth, dataWidth) {
+  /** Flag to indicate when the read request has been acknowledged */
+  val ack = Input(Bool())
+  /** Flag to indicate when the output data is valid */
+  val valid = Input(Bool())
 
-  override def cloneType: this.type = new ReadMemIO(addrWidth, dataWidth).asInstanceOf[this.type]
+  override def cloneType: this.type = new AsyncReadMemIO(addrWidth, dataWidth).asInstanceOf[this.type]
 }
 
-object ReadMemIO {
-  def apply(addrWidth: Int, dataWidth: Int): ReadMemIO = new ReadMemIO(addrWidth, dataWidth)
+object AsyncReadMemIO {
+  def apply(addrWidth: Int, dataWidth: Int) = new AsyncReadMemIO(addrWidth, dataWidth)
 }
 
 /**
- * A simple flow control interface for writing to synchronous memory.
+ * A simple flow control interface for writing to asynchronous memory.
  *
  * @param addrWidth The width of the address bus.
  * @param dataWidth The width of the data bus.
  */
-class WriteMemIO private[mem] (addrWidth: Int, dataWidth: Int) extends Bundle {
-  /** Read enable */
-  val wr = Output(Bool())
-  /** Address bus */
-  val addr = Output(UInt(addrWidth.W))
-  /** Data bus */
-  val din = Output(UInt(dataWidth.W))
+class AsyncWriteMemIO private[mem] (addrWidth: Int, dataWidth: Int) extends WriteMemIO(addrWidth, dataWidth) {
+  /** Flag to indicate when the write request has been acknowledged */
+  val ack = Input(Bool())
 
-  override def cloneType: this.type = new WriteMemIO(addrWidth, dataWidth).asInstanceOf[this.type]
+  override def cloneType: this.type = new AsyncWriteMemIO(addrWidth, dataWidth).asInstanceOf[this.type]
 }
 
-object WriteMemIO {
-  def apply(addrWidth: Int, dataWidth: Int): WriteMemIO = new WriteMemIO(addrWidth, dataWidth)
+object AsyncWriteMemIO {
+  def apply(addrWidth: Int, dataWidth: Int) = new AsyncWriteMemIO(addrWidth, dataWidth)
 }
 
 /**
- * A simple flow control interface for reading and writing to synchronous memory.
+ * A simple flow control interface for reading and writing to asynchronous memory.
  *
  * @param addrWidth The width of the address bus.
  * @param dataWidth The width of the data bus.
  */
-class ReadWriteMemIO private[mem] (addrWidth: Int, dataWidth: Int) extends Bundle {
-  /** Read enable */
-  val rd = Output(Bool())
-  /** Write enable */
-  val wr = Output(Bool())
-  /** Address bus */
-  val addr = Output(UInt(addrWidth.W))
-  /** Data input bus */
-  val din = Output(Bits(dataWidth.W))
-  /** Data output bus */
-  val dout = Input(Bits(dataWidth.W))
+class AsyncReadWriteMemIO private[mem] (addrWidth: Int, dataWidth: Int) extends ReadWriteMemIO(addrWidth, dataWidth) {
+  /** Flag to indicate when the read/write request has been acknowledged */
+  val ack = Input(Bool())
+  /** Flag to indicate when the output data is valid */
+  val valid = Input(Bool())
 
-  override def cloneType: this.type = new ReadWriteMemIO(addrWidth, dataWidth).asInstanceOf[this.type]
+  override def cloneType: this.type = new AsyncReadWriteMemIO(addrWidth, dataWidth).asInstanceOf[this.type]
 }
 
-object ReadWriteMemIO {
-  def apply(addrWidth: Int, dataWidth: Int): ReadWriteMemIO = new ReadWriteMemIO(addrWidth, dataWidth)
+object AsyncReadWriteMemIO {
+  def apply(addrWidth: Int, dataWidth: Int) = new AsyncReadWriteMemIO(addrWidth, dataWidth)
 }

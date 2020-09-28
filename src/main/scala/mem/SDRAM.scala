@@ -39,6 +39,7 @@ package mem
 
 import chisel3._
 import chisel3.util._
+import mem._
 
 /**
  * An interface for reading and writing to SDRAM.
@@ -147,30 +148,6 @@ case class SDRAMConfig(clockFreq: Double = 100000000,
 
   /** The number of clock cycles between REFRESH commands. */
   val refreshInterval = (tREFI/clockPeriod).floor.toLong
-}
-
-// TODO: Merge into ReadWriteMemIO
-class AsyncReadWriteMemIO private (addrWidth: Int, dataWidth: Int) extends Bundle {
-  /** Read enable */
-  val rd = Output(Bool())
-  /** Write enable */
-  val wr = Output(Bool())
-  /** Acknowledge */
-  val ack = Input(Bool())
-  /** Address bus */
-  val addr = Output(UInt(addrWidth.W))
-  /** Data input bus */
-  val din = Output(Bits(dataWidth.W))
-  /** Data output bus */
-  val dout = Input(Bits(dataWidth.W))
-  /** Valid */
-  val valid = Input(Bool())
-
-  override def cloneType: this.type = new AsyncReadWriteMemIO(addrWidth, dataWidth).asInstanceOf[this.type]
-}
-
-object AsyncReadWriteMemIO {
-  def apply(addrWidth: Int, dataWidth: Int) = new AsyncReadWriteMemIO(addrWidth, dataWidth)
 }
 
 /**
