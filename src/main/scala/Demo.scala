@@ -49,7 +49,7 @@ class Demo extends Module {
 
   val io = IO(new Bundle {
     val led = Output(UInt(8.W))
-    val sdram = SDRAMIO(sdramConfig.bankWidth, sdramConfig.addrWidth, sdramConfig.dataWidth)})
+    val sdram = SDRAMIO(sdramConfig)})
 
   // States
   val writeState :: readState :: Nil = Enum(2)

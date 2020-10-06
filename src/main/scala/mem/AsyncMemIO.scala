@@ -46,9 +46,9 @@ import chisel3._
  * @param dataWidth The width of the data bus.
  */
 class AsyncReadMemIO private[mem] (addrWidth: Int, dataWidth: Int) extends ReadMemIO(addrWidth, dataWidth) {
-  /** Flag to indicate that the slave isn't ready to proceed with the request  */
+  /** Asserted if the memory is not ready to proceed with the request. The input signals should be held constant. */
   val waitReq = Input(Bool())
-  /** Flag to indicate when the output data is valid */
+  /** Asserted when the output data is valid */
   val valid = Input(Bool())
 
   override def cloneType: this.type = new AsyncReadMemIO(addrWidth, dataWidth).asInstanceOf[this.type]
@@ -65,7 +65,7 @@ object AsyncReadMemIO {
  * @param dataWidth The width of the data bus.
  */
 class AsyncWriteMemIO private[mem] (addrWidth: Int, dataWidth: Int) extends WriteMemIO(addrWidth, dataWidth) {
-  /** Flag to indicate that the slave isn't ready to proceed with the request  */
+  /** Asserted if the memory is not ready to proceed with the request. The input signals should be held constant. */
   val waitReq = Input(Bool())
 
   override def cloneType: this.type = new AsyncWriteMemIO(addrWidth, dataWidth).asInstanceOf[this.type]
@@ -82,9 +82,9 @@ object AsyncWriteMemIO {
  * @param dataWidth The width of the data bus.
  */
 class AsyncReadWriteMemIO private[mem] (addrWidth: Int, dataWidth: Int) extends ReadWriteMemIO(addrWidth, dataWidth) {
-  /** Flag to indicate that the slave isn't ready to proceed with the request  */
+  /** Asserted if the memory is not ready to proceed with the request. The input signals should be held constant. */
   val waitReq = Input(Bool())
-  /** Flag to indicate when the output data is valid */
+  /** Asserted when the output data is valid */
   val valid = Input(Bool())
 
   override def cloneType: this.type = new AsyncReadWriteMemIO(addrWidth, dataWidth).asInstanceOf[this.type]

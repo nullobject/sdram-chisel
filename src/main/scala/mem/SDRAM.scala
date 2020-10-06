@@ -43,11 +43,9 @@ import chisel3.util._
 /**
  * An interface for reading and writing to SDRAM.
  *
- * @param bankWidth The width of the bank bus.
- * @param addrWidth The width of the address bus.
- * @param dataWidth The width of the data bus.
+ * @param config The SDRAM configuration.
  */
-class SDRAMIO private (bankWidth: Int, addrWidth: Int, dataWidth: Int) extends Bundle {
+class SDRAMIO private (config: SDRAMConfig) extends Bundle {
   /** Clock enable */
   val cke = Output(Bool())
   /** Chip select */
@@ -61,19 +59,19 @@ class SDRAMIO private (bankWidth: Int, addrWidth: Int, dataWidth: Int) extends B
   /** Output enable */
   val oe = Output(Bool())
   /** Bank bus */
-  val bank = Output(UInt(bankWidth.W))
+  val bank = Output(UInt(config.bankWidth.W))
   /** Address bus */
-  val addr = Output(UInt(addrWidth.W))
+  val addr = Output(UInt(config.addrWidth.W))
   /** Data input bus */
-  val din = Output(Bits(dataWidth.W))
+  val din = Output(Bits(config.dataWidth.W))
   /** Data output bus */
-  val dout = Input(Bits(dataWidth.W))
+  val dout = Input(Bits(config.dataWidth.W))
 
-  override def cloneType: this.type = new SDRAMIO(bankWidth, addrWidth, dataWidth).asInstanceOf[this.type]
+  override def cloneType: this.type = new SDRAMIO(config).asInstanceOf[this.type]
 }
 
 object SDRAMIO {
-  def apply(bankWidth: Int, addrWidth: Int, dataWidth: Int) = new SDRAMIO(bankWidth, addrWidth, dataWidth)
+  def apply(config: SDRAMConfig) = new SDRAMIO(config)
 }
 
 /**
@@ -165,7 +163,7 @@ class SDRAM(config: SDRAMConfig) extends Module {
     /** Memory port */
     val mem = Flipped(AsyncReadWriteMemIO(config.logicalAddrWidth, config.logicalDataWidth))
     /** SDRAM port */
-    val sdram = SDRAMIO(config.bankWidth, config.addrWidth, config.dataWidth)
+    val sdram = SDRAMIO(config)
     /** Debug port */
     val debug = new Bundle {
       val init = Output(Bool())
