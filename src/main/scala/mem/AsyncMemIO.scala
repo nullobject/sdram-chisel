@@ -46,8 +46,8 @@ import chisel3._
  * @param dataWidth The width of the data bus.
  */
 class AsyncReadMemIO private[mem] (addrWidth: Int, dataWidth: Int) extends ReadMemIO(addrWidth, dataWidth) {
-  /** Flag to indicate when the read request has been acknowledged */
-  val ack = Input(Bool())
+  /** Flag to indicate that the slave isn't ready to proceed with the request  */
+  val waitReq = Input(Bool())
   /** Flag to indicate when the output data is valid */
   val valid = Input(Bool())
 
@@ -65,8 +65,8 @@ object AsyncReadMemIO {
  * @param dataWidth The width of the data bus.
  */
 class AsyncWriteMemIO private[mem] (addrWidth: Int, dataWidth: Int) extends WriteMemIO(addrWidth, dataWidth) {
-  /** Flag to indicate when the write request has been acknowledged */
-  val ack = Input(Bool())
+  /** Flag to indicate that the slave isn't ready to proceed with the request  */
+  val waitReq = Input(Bool())
 
   override def cloneType: this.type = new AsyncWriteMemIO(addrWidth, dataWidth).asInstanceOf[this.type]
 }
@@ -82,12 +82,23 @@ object AsyncWriteMemIO {
  * @param dataWidth The width of the data bus.
  */
 class AsyncReadWriteMemIO private[mem] (addrWidth: Int, dataWidth: Int) extends ReadWriteMemIO(addrWidth, dataWidth) {
-  /** Flag to indicate when the read/write request has been acknowledged */
-  val ack = Input(Bool())
+  /** Flag to indicate that the slave isn't ready to proceed with the request  */
+  val waitReq = Input(Bool())
   /** Flag to indicate when the output data is valid */
   val valid = Input(Bool())
 
   override def cloneType: this.type = new AsyncReadWriteMemIO(addrWidth, dataWidth).asInstanceOf[this.type]
+
+  /** Converts this interface to read-only */
+  def asReadMemIO: ReadMemIO = {
+    val wire = Wire(Flipped(ReadMemIO(addrWidth, dataWidth)))
+    rd := wire.rd
+    wr := false.B
+    addr := wire.addr
+    din := 0.U
+    wire.dout := dout
+    wire
+  }
 }
 
 object AsyncReadWriteMemIO {
