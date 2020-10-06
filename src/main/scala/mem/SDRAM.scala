@@ -39,7 +39,6 @@ package mem
 
 import chisel3._
 import chisel3.util._
-import mem._
 
 /**
  * An interface for reading and writing to SDRAM.
@@ -88,8 +87,8 @@ object SDRAMIO {
  * @param colWidth The column width.
  * @param burstLength The number of words to be transferred during a read/write.
  * @param burstType The burst type (0=sequential, 1=interleaved).
- * @param casLatency The delay in clock cycles, between the start of a read
- *                   command and the availability of the output data.
+ * @param casLatency The delay in clock cycles, between the start of a read command and the
+ *                   availability of the output data.
  * @param writeBurstMode The write burst mode (0=burst, 1=single).
  * @param tINIT The initialization delay (ns). Typically around 200us.
  * @param tMRD The mode register cycle time (ns).
@@ -99,7 +98,7 @@ object SDRAMIO {
  * @param tWR The write recovery time (ns).
  * @param tREFI The average refresh interval (ns).
  */
-case class SDRAMConfig(clockFreq: Double = 100000000,
+case class SDRAMConfig(clockFreq: Double,
                        addrWidth: Int = 13,
                        dataWidth: Int = 16,
                        bankWidth: Int = 2,
@@ -125,8 +124,8 @@ case class SDRAMConfig(clockFreq: Double = 100000000,
   /** The SDRAM clock period (ns). */
   val clockPeriod = 1/clockFreq*1000000000
 
-  /** The number of clock cycles to wait before initializing the device. */
-  val initWait = (tINIT/clockPeriod).ceil.toLong
+  /** The number of clock cycles to wait before selecting the device. */
+  val deselectWait = (tINIT/clockPeriod).ceil.toLong
 
   /** The number of clock cycles to wait for a PRECHARGE command. */
   val prechargeWait = (tRP/clockPeriod).ceil.toLong
@@ -148,10 +147,16 @@ case class SDRAMConfig(clockFreq: Double = 100000000,
 
   /** The number of clock cycles between REFRESH commands. */
   val refreshInterval = (tREFI/clockPeriod).floor.toLong
+
+  /** The maximum value of the wait counter. */
+  val waitCounterMax = 1 << log2Ceil(deselectWait+prechargeWait+refreshWait+refreshWait)
+
+  /** The maximum value of the refresh counter. */
+  val refreshCounterMax = 1 << log2Ceil(refreshInterval)
 }
 
 /**
- * Represents a SDRAM controller.
+ * Handles reading/writing data to a SDRAM memory device.
  *
  * @param config The SDRAM configuration.
  */
@@ -174,29 +179,29 @@ class SDRAM(config: SDRAMConfig) extends Module {
   })
 
   // States
-  val stInit :: stMode :: stIdle :: stActive :: stRead :: stWrite :: stRefresh :: Nil = Enum(7)
+  val initState :: modeState :: idleState :: activeState :: readState :: writeState :: refreshState :: Nil = Enum(7)
 
   // Commands
-  val cmdMode :: cmdRefresh :: cmdPrecharge :: cmdActive :: cmdWrite :: cmdRead :: cmdStop :: cmdNop :: cmdDeselect :: Nil = Enum(9)
+  val modeCommand :: refreshCommand :: prechargeCommand :: activeCommand :: writeCommand :: readCommand :: stopCommand :: nopCommand :: deselectCommand :: Nil = Enum(9)
 
   // Wires
   val nextState = Wire(UInt())
-  val nextCmd = WireInit(cmdNop)
+  val nextCommand = WireInit(nopCommand)
   val latchRequest = WireInit(false.B)
   val latchData = WireInit(false.B)
 
   // Registers
-  val stateReg = RegNext(nextState, stInit)
-  val cmdReg = RegNext(nextCmd, cmdNop)
+  val stateReg = RegNext(nextState, initState)
+  val commandReg = RegNext(nextCommand, nopCommand)
   val writeReg = RegEnable(io.mem.wr, false.B, latchRequest)
   val addrReg = RegEnable(io.mem.addr, 0.U(config.logicalAddrWidth.W), latchRequest)
   val dataReg = Reg(Vec(config.burstLength, Bits(config.dataWidth.W)))
 
   // Set mode opcode
   val mode =
-    "b000".U ## // unused
+    0.U(3.W) ## // unused
     config.writeBurstMode.U(1.W) ##
-    "b00".U ## // unused
+    0.U(2.W) ## // unused
     config.casLatency.U(3.W) ##
     config.burstType.U(1.W) ##
     log2Ceil(config.burstLength).U(3.W)
@@ -207,31 +212,32 @@ class SDRAM(config: SDRAMConfig) extends Module {
   val col = addrReg(config.colWidth-1, 0)
 
   // Counters
-  val (waitCounterValue, _) = Counter(0 until 32768,
+  val (waitCounterValue, _) = Counter(0 until config.waitCounterMax,
     reset = nextState =/= stateReg
   )
-  val (refreshCounterValue, _) = Counter(0 until 1024,
-    enable = stateReg =/= stInit && stateReg =/= stMode,
-    reset = stateReg === stRefresh && waitCounterValue === 0.U
+  val (refreshCounterValue, _) = Counter(0 until config.refreshCounterMax,
+    enable = stateReg =/= initState && stateReg =/= modeState,
+    reset = stateReg === refreshState && waitCounterValue === 0.U
   )
 
-  // Flags
+  // Control signals
   val modeDone = waitCounterValue === (config.modeWait-1).U
   val activeDone = waitCounterValue === (config.activeWait-1).U
   val readDone = waitCounterValue === (config.readWait-1).U
   val writeDone = waitCounterValue === (config.writeWait-1).U
   val refreshDone = waitCounterValue === (config.refreshWait-1).U
-  val shouldRefresh = refreshCounterValue >= (config.refreshInterval-1).U
+  val refresh = refreshCounterValue >= (config.refreshInterval-1).U
+  val pending = io.mem.rd || io.mem.wr
 
   // Latch request during IDLE, READ, WRITE, and REFRESH commands
   latchRequest :=
-    stateReg === stIdle ||
-    stateReg === stRead && readDone ||
-    stateReg === stWrite && writeDone ||
-    stateReg === stRefresh && refreshDone
+    stateReg === idleState ||
+    stateReg === readState && readDone ||
+    stateReg === writeState && writeDone ||
+    stateReg === refreshState && refreshDone
 
   // Latch data from the SDRAM port. The data is shifted into the data register.
-  when(stateReg === stRead || stateReg === stWrite) {
+  when(stateReg === readState || stateReg === writeState) {
     dataReg := io.sdram.dout +: dataReg.init
   }
 
@@ -247,126 +253,124 @@ class SDRAM(config: SDRAMConfig) extends Module {
   nextState := stateReg
 
   // Default to a NOP
-  nextCmd := cmdNop
+  nextCommand := nopCommand
 
   // FSM
   switch(stateReg) {
-    // Execute the initialization sequence
-    is(stInit) {
+    // Execute initialization sequence
+    is(initState) {
       when(waitCounterValue === 0.U) {
-        nextCmd := cmdDeselect
-      }.elsewhen(waitCounterValue === (config.initWait-1).U) {
-        nextCmd := cmdPrecharge
-      }.elsewhen(waitCounterValue === (config.initWait+config.prechargeWait-1).U) {
-        nextCmd := cmdRefresh
-      }.elsewhen(waitCounterValue === (config.initWait+config.prechargeWait+config.refreshWait-1).U) {
-        nextCmd := cmdRefresh
-      }.elsewhen(waitCounterValue === (config.initWait+config.prechargeWait+config.refreshWait+config.refreshWait-1).U) {
-        nextCmd := cmdMode
-        nextState := stMode
+        nextCommand := deselectCommand
+      }.elsewhen(waitCounterValue === (config.deselectWait-1).U) {
+        nextCommand := prechargeCommand
+      }.elsewhen(waitCounterValue === (config.deselectWait+config.prechargeWait-1).U) {
+        nextCommand := refreshCommand
+      }.elsewhen(waitCounterValue === (config.deselectWait+config.prechargeWait+config.refreshWait-1).U) {
+        nextCommand := refreshCommand
+      }.elsewhen(waitCounterValue === (config.deselectWait+config.prechargeWait+config.refreshWait+config.refreshWait-1).U) {
+        nextCommand := modeCommand
+        nextState := modeState
       }
     }
 
-    // Write the mode register
-    is(stMode) {
-      when(modeDone) {
-        nextState := stIdle
+    // Set mode register
+    is(modeState) {
+      when(modeDone) { nextState := idleState }
+    }
+
+    // Wait for request
+    is(idleState) {
+      when(refresh) {
+        nextCommand := refreshCommand
+        nextState := refreshState
+      }.elsewhen(pending) {
+        nextCommand := activeCommand
+        nextState := activeState
       }
     }
 
-    // Wait for read/write request
-    is(stIdle) {
-      when(shouldRefresh) {
-        nextCmd := cmdRefresh
-        nextState := stRefresh
-      }.elsewhen(io.mem.rd || io.mem.wr) {
-        nextCmd := cmdActive
-        nextState := stActive
-      }
-    }
-
-    // Activate the row
-    is(stActive) {
+    // Activate row
+    is(activeState) {
       when(activeDone) {
         when(writeReg) {
-          nextCmd := cmdWrite
-          nextState := stWrite
+          nextCommand := writeCommand
+          nextState := writeState
         }.otherwise {
-          nextCmd := cmdRead
-          nextState := stRead
+          nextCommand := readCommand
+          nextState := readState
         }
       }
     }
 
-    // Execute a read command
-    is(stRead) {
+    // Execute read command
+    is(readState) {
       when(readDone) {
-        when(shouldRefresh) {
-          nextCmd := cmdRefresh
-          nextState := stRefresh
-        }.elsewhen(io.mem.rd) {
-          nextCmd := cmdActive
-          nextState := stActive
+        when(refresh) {
+          nextCommand := refreshCommand
+          nextState := refreshState
+        }.elsewhen(pending) {
+          nextCommand := activeCommand
+          nextState := activeState
         }.otherwise {
-          nextState := stIdle
+          nextState := idleState
         }
       }
     }
 
-    // Execute a write command
-    is(stWrite) {
+    // Execute write command
+    is(writeState) {
       when(writeDone) {
-        when(shouldRefresh) {
-          nextCmd := cmdRefresh
-          nextState := stRefresh
-        }.elsewhen(io.mem.rd) {
-          nextCmd := cmdActive
-          nextState := stActive
+        when(refresh) {
+          nextCommand := refreshCommand
+          nextState := refreshState
+        }.elsewhen(pending) {
+          nextCommand := activeCommand
+          nextState := activeState
         }.otherwise {
-          nextState := stIdle
+          nextState := idleState
         }
       }
     }
 
-    // Execute a refresh command
-    is(stRefresh) {
+    // Execute refresh command
+    is(refreshState) {
       when(refreshDone) {
-        when(io.mem.rd) {
-          nextCmd := cmdActive
-          nextState := stActive
+        when(pending) {
+          nextCommand := activeCommand
+          nextState := activeState
         }.otherwise {
-          nextState := stIdle
+          nextState := idleState
         }
       }
     }
   }
 
   // Outputs
-  io.mem.ack := stateReg === stActive && waitCounterValue === 0.U
+  io.mem.waitReq := pending && nextState =/= activeState
   io.mem.dout := dataReg.asUInt
-  io.mem.valid := RegNext(stateReg === stRead && readDone)
-  io.sdram.cke := !(stateReg === stInit && waitCounterValue === 0.U)
-  io.sdram.cs := cmdReg(3)
-  io.sdram.ras := cmdReg(2)
-  io.sdram.cas := cmdReg(1)
-  io.sdram.we := cmdReg(0)
-  io.sdram.oe := stateReg === stWrite
-  io.sdram.bank := Mux(stateReg === stActive || stateReg === stRead || stateReg === stWrite, bank, 0.U)
+  io.mem.valid := RegNext(stateReg === readState && readDone)
+  io.sdram.cke := !(stateReg === initState && waitCounterValue === 0.U)
+  io.sdram.cs := commandReg(3)
+  io.sdram.ras := commandReg(2)
+  io.sdram.cas := commandReg(1)
+  io.sdram.we := commandReg(0)
+  io.sdram.oe := stateReg === writeState
+  io.sdram.bank := Mux(stateReg === activeState || stateReg === readState || stateReg === writeState, bank, 0.U)
   io.sdram.addr := MuxLookup(stateReg, 0.U, Seq(
-    stInit -> "b0010000000000".U,
-    stMode -> mode,
-    stActive -> row,
-    stRead -> "b0010".U ## col,
-    stWrite -> "b0010".U ## col
+    initState -> "b0010000000000".U,
+    modeState -> mode,
+    activeState -> row,
+    readState -> "b0010".U ## col,
+    writeState -> "b0010".U ## col
   ))
   io.sdram.din := dataReg.last
-  io.debug.init := stateReg === stInit
-  io.debug.mode := stateReg === stMode
-  io.debug.idle := stateReg === stIdle
-  io.debug.active := stateReg === stActive
-  io.debug.read := stateReg === stRead
-  io.debug.write := stateReg === stWrite
-  io.debug.refresh := stateReg === stRefresh
+  io.debug.init := stateReg === initState
+  io.debug.mode := stateReg === modeState
+  io.debug.idle := stateReg === idleState
+  io.debug.active := stateReg === activeState
+  io.debug.read := stateReg === readState
+  io.debug.write := stateReg === writeState
+  io.debug.refresh := stateReg === refreshState
 
-  printf(p"SDRAM(state: $stateReg, nextState: $nextState, command: $cmdReg, nextCommand: $nextCmd, counter: $waitCounterValue, dout: $dataReg, valid: ${io.mem.valid})\n")
+  printf(p"SDRAM(state: $stateReg, nextState: $nextState, command: $commandReg, nextCommand: $nextCommand, counter: $waitCounterValue, dout: $dataReg, valid: ${io.mem.valid})\n")
 }

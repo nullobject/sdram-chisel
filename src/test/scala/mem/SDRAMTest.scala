@@ -65,45 +65,39 @@ trait SDRAMWaitHelpers {
 }
 
 class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with SDRAMWaitHelpers {
-  val config = SDRAMConfig(
+  private val sdramConfig = SDRAMConfig(
+    clockFreq = 100000000,
     tINIT = 20,
     tMRD = 10,
-    tRC = 10,
+    tRC = 20,
     tRCD = 10,
     tRP = 10,
     tWR = 10,
     tREFI = 100
   )
 
+  private def mkSDRAM(config: SDRAMConfig = sdramConfig) = new SDRAM(config)
+
   behavior of "FSM"
 
   it should "move to the mode state after initializing" in {
-    test(new SDRAM(config)) { dut =>
+    test(mkSDRAM()) { dut =>
       waitForInit(dut)
-      dut.clock.step(5)
+      dut.clock.step(7)
       dut.io.debug.mode.expect(true.B)
     }
   }
 
   it should "move to the idle state after setting the mode" in {
-    test(new SDRAM(config)) { dut =>
+    test(mkSDRAM()) { dut =>
       waitForMode(dut)
       dut.clock.step(2)
       dut.io.debug.idle.expect(true.B)
     }
   }
 
-  it should "output a NOP during the idle state" in {
-    test(new SDRAM(config)) { dut =>
-      waitForIdle(dut)
-      dut.io.sdram.ras.expect(true.B)
-      dut.io.sdram.cas.expect(true.B)
-      dut.io.sdram.we.expect(true.B)
-    }
-  }
-
   it should "move to the active state" in {
-    test(new SDRAM(config)) { dut =>
+    test(mkSDRAM()) { dut =>
       dut.io.mem.rd.poke(true.B)
       waitForIdle(dut)
       dut.clock.step()
@@ -111,16 +105,8 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
     }
   }
 
-  it should "assert the ack signal at the beginning of the active state" in {
-    test(new SDRAM(config)) { dut =>
-      dut.io.mem.rd.poke(true.B)
-      waitForActive(dut)
-      dut.io.mem.ack.expect(true.B)
-    }
-  }
-
   it should "move to the read state" in {
-    test(new SDRAM(config)) { dut =>
+    test(mkSDRAM()) { dut =>
       dut.io.mem.rd.poke(true.B)
       waitForActive(dut)
       dut.clock.step(2)
@@ -129,7 +115,7 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
   }
 
   it should "move to the write state" in {
-    test(new SDRAM(config)) { dut =>
+    test(mkSDRAM()) { dut =>
       dut.io.mem.wr.poke(true.B)
       waitForActive(dut)
       dut.clock.step(2)
@@ -138,7 +124,7 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
   }
 
   it should "return to the idle state from the read state" in {
-    test(new SDRAM(config)) { dut =>
+    test(mkSDRAM()) { dut =>
       dut.io.mem.rd.poke(true.B)
       waitForRead(dut)
       dut.io.mem.rd.poke(false.B)
@@ -148,7 +134,7 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
   }
 
   it should "return to the idle state from the write state" in {
-    test(new SDRAM(config)) { dut =>
+    test(mkSDRAM()) { dut =>
       dut.io.mem.wr.poke(true.B)
       waitForWrite(dut)
       dut.io.mem.wr.poke(false.B)
@@ -158,9 +144,9 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
   }
 
   it should "return to the idle state from the refresh state" in {
-    test(new SDRAM(config)) { dut =>
+    test(mkSDRAM()) { dut =>
       waitForRefresh(dut)
-      dut.clock.step()
+      dut.clock.step(2)
       dut.io.debug.idle.expect(true.B)
     }
   }
@@ -168,7 +154,7 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
   behavior of "initialize"
 
   it should "initialize the SDRAM" in {
-    test(new SDRAM(config)) { dut =>
+    test(mkSDRAM()) { dut =>
       // NOP
       dut.io.sdram.cs.expect(false.B)
       dut.io.sdram.ras.expect(true.B)
@@ -196,14 +182,14 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
       dut.io.sdram.ras.expect(false.B)
       dut.io.sdram.cas.expect(false.B)
       dut.io.sdram.we.expect(true.B)
-      dut.clock.step()
+      dut.clock.step(2)
 
       // Refresh
       dut.io.sdram.cs.expect(false.B)
       dut.io.sdram.ras.expect(false.B)
       dut.io.sdram.cas.expect(false.B)
       dut.io.sdram.we.expect(true.B)
-      dut.clock.step()
+      dut.clock.step(2)
 
       // Mode
       dut.io.sdram.cs.expect(false.B)
@@ -214,13 +200,24 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
     }
   }
 
+  behavior of "idle"
+
+  it should "perform a NOP" in {
+    test(mkSDRAM()) { dut =>
+      waitForIdle(dut)
+      dut.io.sdram.ras.expect(true.B)
+      dut.io.sdram.cas.expect(true.B)
+      dut.io.sdram.we.expect(true.B)
+    }
+  }
+
   behavior of "read"
 
   it should "read from the SDRAM (burst=1)" in {
-    test(new SDRAM(config)) { dut =>
+    test(mkSDRAM()) { dut =>
       waitForIdle(dut)
 
-      // Request read
+      // Request
       dut.io.mem.rd.poke(true.B)
       dut.io.mem.addr.poke(1.U)
       waitForActive(dut)
@@ -246,10 +243,10 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
   }
 
   it should "read from the SDRAM (burst=2)" in {
-    test(new SDRAM(config.copy(burstLength = 2))) { dut =>
+    test(mkSDRAM(sdramConfig.copy(burstLength = 2))) { dut =>
       waitForIdle(dut)
 
-      // Request read
+      // Request
       dut.io.mem.rd.poke(true.B)
       dut.io.mem.addr.poke(1.U)
       waitForActive(dut)
@@ -276,13 +273,39 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
     }
   }
 
+  it should "assert the wait signal when a read is pending" in {
+    test(mkSDRAM()) { dut =>
+      waitForIdle(dut)
+
+      // Request
+      dut.io.mem.rd.poke(true.B)
+      dut.io.mem.waitReq.expect(false.B)
+      waitForActive(dut)
+
+      // Wait
+      dut.io.mem.waitReq.expect(true.B)
+      dut.io.mem.rd.poke(false.B)
+      dut.io.mem.waitReq.expect(false.B)
+      waitForRead(dut)
+
+      // Read
+      dut.io.mem.waitReq.expect(false.B)
+      dut.clock.step()
+      dut.io.mem.waitReq.expect(false.B)
+      dut.clock.step()
+      dut.io.mem.waitReq.expect(false.B)
+      dut.io.mem.rd.poke(true.B)
+      dut.io.mem.waitReq.expect(false.B)
+    }
+  }
+
   behavior of "write"
 
   it should "write to the SDRAM (burst=1)" in {
-    test(new SDRAM(config)) { dut =>
+    test(mkSDRAM()) { dut =>
       waitForIdle(dut)
 
-      // Request write
+      // Request
       dut.io.mem.wr.poke(true.B)
       dut.io.mem.addr.poke(1.U)
       dut.io.mem.din.poke(1.U)
@@ -304,10 +327,10 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
   }
 
   it should "write to the SDRAM (burst=2)" in {
-    test(new SDRAM(config.copy(burstLength = 2))) { dut =>
+    test(mkSDRAM(sdramConfig.copy(burstLength = 2))) { dut =>
       waitForIdle(dut)
 
-      // Request write
+      // Request
       dut.io.mem.wr.poke(true.B)
       dut.io.mem.addr.poke(1.U)
       dut.io.mem.din.poke(65538.U)
@@ -330,16 +353,59 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
     }
   }
 
+  it should "assert the wait signal when a write is pending" in {
+    test(mkSDRAM()) { dut =>
+      waitForIdle(dut)
+
+      // Request
+      dut.io.mem.wr.poke(true.B)
+      dut.io.mem.waitReq.expect(false.B)
+      waitForActive(dut)
+
+      // Wait
+      dut.io.mem.waitReq.expect(true.B)
+      dut.io.mem.wr.poke(false.B)
+      dut.io.mem.waitReq.expect(false.B)
+      waitForWrite(dut)
+
+      // Write
+      dut.io.mem.waitReq.expect(false.B)
+      dut.clock.step()
+      dut.io.mem.waitReq.expect(false.B)
+      dut.clock.step()
+      dut.io.mem.waitReq.expect(false.B)
+      dut.io.mem.wr.poke(true.B)
+      dut.io.mem.waitReq.expect(false.B)
+    }
+  }
+
   behavior of "refresh"
 
-  it should "refresh the SDRAM after the refresh interval" in {
-    test(new SDRAM(config)) { dut =>
+  it should "perform a refresh" in {
+    test(mkSDRAM()) { dut =>
       waitForIdle(dut)
       dut.clock.step(10)
       dut.io.debug.refresh.expect(true.B)
       waitForIdle(dut)
       dut.clock.step(10)
       dut.io.debug.refresh.expect(true.B)
+    }
+  }
+
+  it should "assert the wait signal when a refresh is pending" in {
+    test(mkSDRAM()) { dut =>
+      waitForIdle(dut)
+      dut.clock.step(9)
+      dut.io.mem.waitReq.expect(false.B)
+      dut.io.mem.rd.poke(true.B)
+      dut.io.mem.waitReq.expect(true.B)
+      dut.clock.step()
+
+      // Refresh
+      dut.io.debug.refresh.expect(true.B)
+      dut.io.mem.waitReq.expect(true.B)
+      dut.clock.step()
+      dut.io.mem.waitReq.expect(false.B)
     }
   }
 }

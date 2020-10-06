@@ -42,43 +42,43 @@ import mem._
 
 /** This is the top-level module for the demo circuit. */
 class Demo extends Module {
-  val CLOCK_FREQ: Double = 50000000
+  val CLOCK_FREQ = 50000000D
 
   // SDRAM configuration
-  val config = SDRAMConfig(clockFreq = CLOCK_FREQ)
+  val sdramConfig = SDRAMConfig(clockFreq = CLOCK_FREQ)
 
   val io = IO(new Bundle {
     val led = Output(UInt(8.W))
-    val sdram = SDRAMIO(config.bankWidth, config.addrWidth, config.dataWidth)
-  })
+    val sdram = SDRAMIO(sdramConfig.bankWidth, sdramConfig.addrWidth, sdramConfig.dataWidth)})
 
   // States
-  val write :: read :: Nil = Enum(2)
+  val writeState :: readState :: Nil = Enum(2)
 
   // Registers
-  val stateReg = RegInit(write)
-  val waitEnable = RegInit(false.B)
+  val stateReg = RegInit(writeState)
+  val readyReg = RegInit(true.B)
 
   // Counters
-  val (_, waitCounterWrap) = Counter(0 until (CLOCK_FREQ/100).ceil.toInt, enable = waitEnable)
+  val (_, waitCounterWrap) = Counter(0 until (CLOCK_FREQ/100).ceil.toInt, enable = !readyReg)
   val (addrCounterValue, addrCounterWrap) = Counter(0 until 256, enable = waitCounterWrap)
 
+  // Control signals
+  val read = stateReg === readState && readyReg
+  val write = stateReg === writeState && readyReg
+
   // SDRAM
-  val sdram = Module(new SDRAM(config))
-  sdram.io.mem.rd := stateReg === read && !waitEnable
-  sdram.io.mem.wr := stateReg === write && !waitEnable
+  val sdram = Module(new SDRAM(sdramConfig))
+  sdram.io.mem.rd := read
+  sdram.io.mem.wr := write
   sdram.io.mem.addr := addrCounterValue
   sdram.io.mem.din := addrCounterValue
 
-  // Toggle the wait register when the request is acknowledged and when the wait counter wraps
-  when(sdram.io.mem.ack) {
-    waitEnable := true.B
-  }.elsewhen(waitCounterWrap) {
-    waitEnable := false.B
-  }
+  // Toggle ready register
+  val pending = (read || write) && !sdram.io.mem.waitReq
+  when(waitCounterWrap) { readyReg := true.B }.elsewhen(pending) { readyReg := false.B }
 
-  // Move to the write state after the address counter wraps
-  when(addrCounterWrap) { stateReg := read }
+  // Set read state
+  when(addrCounterWrap) { stateReg := readState }
 
   // Outputs
   io.led := RegEnable(sdram.io.mem.dout, 0.U, sdram.io.mem.valid)
