@@ -68,15 +68,15 @@ class Demo extends Module {
   val writeState :: readState :: Nil = Enum(2)
 
   // Wires
-  val waitCounterEnable = Wire(Bool())
+//  val waitCounterEnable = Wire(Bool())
   val addrCounterEnable = Wire(Bool())
 
   // Registers
   val stateReg = RegInit(writeState)
-  val pendingReg = RegInit(true.B)
+//  val pendingReg = RegInit(true.B)
 
   // Counters
-  val (_, waitCounterWrap) = Counter(0 until (CLOCK_FREQ/10).ceil.toInt, enable = waitCounterEnable)
+//  val (_, waitCounterWrap) = Counter(0 until (CLOCK_FREQ/10).ceil.toInt, enable = waitCounterEnable)
   val (addrCounterValue, addrCounterWrap) = Counter(0 until 256, enable = addrCounterEnable)
 
   // Control signals
@@ -99,11 +99,12 @@ class Demo extends Module {
   memMux.io.in(1).din := 0.U
 
   // Toggle counter enable signals
-  waitCounterEnable := read && pendingReg
-  addrCounterEnable := (write && !memMux.io.in(0).waitReq) || (read && waitCounterWrap)
+//  waitCounterEnable := read && pendingReg
+//  addrCounterEnable := (write && !memMux.io.in(0).waitReq) || (read && waitCounterWrap)
+  addrCounterEnable := (write && !memMux.io.in(0).waitReq) || (read && !memMux.io.in(1).waitReq)
 
   // Toggle pending register
-  when(waitCounterWrap) { pendingReg := false.B }.elsewhen(read && !memMux.io.in(1).waitReq) { pendingReg := true.B }
+//  when(waitCounterWrap) { pendingReg := false.B }.elsewhen(read && !memMux.io.in(1).waitReq) { pendingReg := true.B }
 
   // Set read state
   when(addrCounterWrap) { stateReg := readState }
