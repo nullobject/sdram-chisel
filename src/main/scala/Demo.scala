@@ -45,43 +45,71 @@ class Demo extends Module {
   val CLOCK_FREQ = 50000000D
 
   // SDRAM configuration
-  val sdramConfig = SDRAMConfig(clockFreq = CLOCK_FREQ)
+  val sdramConfig = SDRAMConfig(clockFreq = CLOCK_FREQ, burstLength = 2)
+
+  // Memory multiplexer configuration
+  val memMuxConfig = MemMuxConfig(
+    addrWidth = sdramConfig.logicalAddrWidth,
+    dataWidth = sdramConfig.logicalDataWidth,
+    slots = Seq(
+      // Write slot
+      SlotConfig(8, 8, depth = 1),
+      // Read slot
+      SlotConfig(8, 8, depth = 16)
+    )
+  )
 
   val io = IO(new Bundle {
     val led = Output(UInt(8.W))
-    val sdram = SDRAMIO(sdramConfig)})
+    val sdram = SDRAMIO(sdramConfig)
+  })
 
   // States
   val writeState :: readState :: Nil = Enum(2)
 
+  // Wires
+  val waitCounterEnable = Wire(Bool())
+  val addrCounterEnable = Wire(Bool())
+
   // Registers
   val stateReg = RegInit(writeState)
-  val readyReg = RegInit(true.B)
+  val pendingReg = RegInit(true.B)
 
   // Counters
-  val (_, waitCounterWrap) = Counter(0 until (CLOCK_FREQ/100).ceil.toInt, enable = !readyReg)
-  val (addrCounterValue, addrCounterWrap) = Counter(0 until 256, enable = waitCounterWrap)
+  val (_, waitCounterWrap) = Counter(0 until (CLOCK_FREQ/10).ceil.toInt, enable = waitCounterEnable)
+  val (addrCounterValue, addrCounterWrap) = Counter(0 until 256, enable = addrCounterEnable)
 
   // Control signals
-  val read = stateReg === readState && readyReg
-  val write = stateReg === writeState && readyReg
+  val read = stateReg === readState
+  val write = stateReg === writeState
 
   // SDRAM
   val sdram = Module(new SDRAM(sdramConfig))
-  sdram.io.mem.rd := read
-  sdram.io.mem.wr := write
-  sdram.io.mem.addr := addrCounterValue
-  sdram.io.mem.din := addrCounterValue
 
-  // Toggle ready register
-  val pending = (read || write) && !sdram.io.mem.waitReq
-  when(waitCounterWrap) { readyReg := true.B }.elsewhen(pending) { readyReg := false.B }
+  // Memory multiplexer
+  val memMux = Module(new MemMux(memMuxConfig))
+  memMux.io.out <> sdram.io.mem
+  memMux.io.in(0).rd := false.B
+  memMux.io.in(0).wr := write
+  memMux.io.in(0).addr := addrCounterValue
+  memMux.io.in(0).din := addrCounterValue
+  memMux.io.in(1).rd := read
+  memMux.io.in(1).wr := false.B
+  memMux.io.in(1).addr := addrCounterValue
+  memMux.io.in(1).din := 0.U
+
+  // Toggle counter enable signals
+  waitCounterEnable := read && pendingReg
+  addrCounterEnable := (write && !memMux.io.in(0).waitReq) || (read && waitCounterWrap)
+
+  // Toggle pending register
+  when(waitCounterWrap) { pendingReg := false.B }.elsewhen(read && !memMux.io.in(1).waitReq) { pendingReg := true.B }
 
   // Set read state
   when(addrCounterWrap) { stateReg := readState }
 
   // Outputs
-  io.led := RegEnable(sdram.io.mem.dout, 0.U, sdram.io.mem.valid)
+  io.led := RegEnable(memMux.io.in(1).dout, 0.U, memMux.io.in(1).valid)
   io.sdram <> sdram.io.sdram
 }
 
