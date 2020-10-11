@@ -66,8 +66,6 @@ class SDRAMIO private (config: SDRAMConfig) extends Bundle {
   val din = Output(Bits(config.dataWidth.W))
   /** Data output bus */
   val dout = Input(Bits(config.dataWidth.W))
-
-  override def cloneType: this.type = new SDRAMIO(config).asInstanceOf[this.type]
 }
 
 object SDRAMIO {
@@ -165,15 +163,15 @@ class SDRAM(config: SDRAMConfig) extends Module {
     /** SDRAM port */
     val sdram = SDRAMIO(config)
     /** Debug port */
-    val debug = new Bundle {
-      val init = Output(Bool())
-      val mode = Output(Bool())
-      val idle = Output(Bool())
-      val active = Output(Bool())
-      val read = Output(Bool())
-      val write = Output(Bool())
-      val refresh = Output(Bool())
-    }
+    val debug = Output(new Bundle {
+      val init = Bool()
+      val mode = Bool()
+      val idle = Bool()
+      val active = Bool()
+      val read = Bool()
+      val write = Bool()
+      val refresh = Bool()
+    })
   })
 
   // States
@@ -181,6 +179,9 @@ class SDRAM(config: SDRAMConfig) extends Module {
 
   // Commands
   val modeCommand :: refreshCommand :: prechargeCommand :: activeCommand :: writeCommand :: readCommand :: stopCommand :: nopCommand :: deselectCommand :: Nil = Enum(9)
+
+  // Convert input address from the a memory address to the a SDRAM address
+  val addr = io.mem.addr << log2Ceil(config.burstLength)
 
   // Wires
   val nextState = Wire(UInt())
@@ -191,8 +192,8 @@ class SDRAM(config: SDRAMConfig) extends Module {
   // Registers
   val stateReg = RegNext(nextState, initState)
   val commandReg = RegNext(nextCommand, nopCommand)
-  val writeReg = RegEnable(io.mem.wr, false.B, latchRequest)
-  val addrReg = RegEnable(io.mem.addr, 0.U(config.logicalAddrWidth.W), latchRequest)
+  val writeReg = RegEnable(io.mem.wr, latchRequest)
+  val addrReg = RegEnable(addr, latchRequest)
   val dataReg = Reg(Vec(config.burstLength, Bits(config.dataWidth.W)))
 
   // Set mode opcode
@@ -204,7 +205,7 @@ class SDRAM(config: SDRAMConfig) extends Module {
     config.burstType.U(1.W) ##
     log2Ceil(config.burstLength).U(3.W)
 
-  // Extract the address components
+  // Extract address components
   val bank = addrReg(config.colWidth+config.rowWidth+config.bankWidth-1, config.colWidth+config.rowWidth)
   val row = addrReg(config.colWidth+config.rowWidth-1, config.colWidth)
   val col = addrReg(config.colWidth-1, 0)
@@ -225,7 +226,7 @@ class SDRAM(config: SDRAMConfig) extends Module {
   val writeDone = waitCounterValue === (config.writeWait-1).U
   val refreshDone = waitCounterValue === (config.refreshWait-1).U
   val refresh = refreshCounterValue >= (config.refreshInterval-1).U
-  val pending = io.mem.rd || io.mem.wr
+  val request = io.mem.rd || io.mem.wr
 
   // Latch request during IDLE, READ, WRITE, and REFRESH commands
   latchRequest :=
@@ -281,7 +282,7 @@ class SDRAM(config: SDRAMConfig) extends Module {
       when(refresh) {
         nextCommand := refreshCommand
         nextState := refreshState
-      }.elsewhen(pending) {
+      }.elsewhen(request) {
         nextCommand := activeCommand
         nextState := activeState
       }
@@ -306,7 +307,7 @@ class SDRAM(config: SDRAMConfig) extends Module {
         when(refresh) {
           nextCommand := refreshCommand
           nextState := refreshState
-        }.elsewhen(pending) {
+        }.elsewhen(request) {
           nextCommand := activeCommand
           nextState := activeState
         }.otherwise {
@@ -321,7 +322,7 @@ class SDRAM(config: SDRAMConfig) extends Module {
         when(refresh) {
           nextCommand := refreshCommand
           nextState := refreshState
-        }.elsewhen(pending) {
+        }.elsewhen(request) {
           nextCommand := activeCommand
           nextState := activeState
         }.otherwise {
@@ -333,7 +334,7 @@ class SDRAM(config: SDRAMConfig) extends Module {
     // Execute refresh command
     is(refreshState) {
       when(refreshDone) {
-        when(pending) {
+        when(request) {
           nextCommand := activeCommand
           nextState := activeState
         }.otherwise {
@@ -344,7 +345,7 @@ class SDRAM(config: SDRAMConfig) extends Module {
   }
 
   // Outputs
-  io.mem.waitReq := pending && nextState =/= activeState
+  io.mem.waitReq := request && nextState =/= activeState
   io.mem.dout := dataReg.asUInt
   io.mem.valid := RegNext(stateReg === readState && readDone)
   io.sdram.cke := !(stateReg === initState && waitCounterValue === 0.U)
