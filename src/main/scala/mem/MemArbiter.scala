@@ -64,8 +64,11 @@ class MemArbiter(n: Int, addrWidth: Int, dataWidth: Int) extends Module {
   val in = io.in(index)
   val out = io.out
 
+  // Assert request signal when there is a pending request
+  val request = in.rd || in.wr
+
   // Set pending register when there is a request
-  when((in.rd || in.wr) && !out.waitReq) { pendingReg := index }
+  when(request && !out.waitReq) { pendingReg := index }
 
   // Default outputs
   out.rd := false.B
