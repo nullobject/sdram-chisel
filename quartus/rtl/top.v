@@ -72,6 +72,7 @@ module top (
   Demo demo (
     .clock(sys_clk),
     .reset(!locked),
+    .io_fastClock(clk),
     .io_led(led),
     .io_sdram_cke(sdram_cke),
     .io_sdram_cs(sdram_cs_n),

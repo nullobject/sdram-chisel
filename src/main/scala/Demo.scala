@@ -60,6 +60,7 @@ class Demo extends Module {
   )
 
   val io = IO(new Bundle {
+    val fastClock = Input(Clock())
     val led = Output(UInt(8.W))
     val sdram = SDRAMIO(sdramConfig)
   })
