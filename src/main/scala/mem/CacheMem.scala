@@ -156,6 +156,7 @@ class CacheMem(config: CacheConfig) extends Module {
   val hit = entry.valid && entry.tag === addrReg.tag
   val miss = !hit
   val waitReq = (dirty || miss) && out.waitReq
+  val request = in.rd || in.wr
 
   // Set output address to cache entry address during an eviction, otherwise use the cache address
   val outAddr = Mux(stateReg === checkState && dirty, entry.tag, addrReg.tag) ## addrReg.index
@@ -193,7 +194,7 @@ class CacheMem(config: CacheConfig) extends Module {
 
     // Wait for a request
     is(idleState) {
-      when(in.rd || in.wr) { stateReg := checkState }
+      when(request) { stateReg := checkState }
     }
 
     // Check cache entry
@@ -222,7 +223,7 @@ class CacheMem(config: CacheConfig) extends Module {
 
   // Outputs
   in.valid := stateReg === checkState && hit && !writeReg
-  in.waitReq := stateReg =/= idleState
+  in.waitReq := stateReg =/= idleState && request
   in.dout := entry.line.words(addrReg.offset)
   out.rd := (stateReg === checkState && !dirty && miss) || stateReg === evictState
   out.wr := stateReg === checkState && dirty
