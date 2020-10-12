@@ -185,7 +185,7 @@ class SDRAM(config: SDRAMConfig) extends Module {
 
   // Wires
   val nextState = Wire(UInt())
-  val nextCommand = WireInit(nopCommand)
+  val nextCommand = Wire(UInt())
   val latchRequest = WireInit(false.B)
   val latchData = WireInit(false.B)
 
@@ -345,7 +345,7 @@ class SDRAM(config: SDRAMConfig) extends Module {
   }
 
   // Outputs
-  io.mem.waitReq := request && nextState =/= activeState
+  io.mem.waitReq := nextState =/= activeState && request
   io.mem.dout := dataReg.asUInt
   io.mem.valid := RegNext(stateReg === readState && readDone)
   io.sdram.cke := !(stateReg === initState && waitCounterValue === 0.U)
