@@ -52,18 +52,26 @@ module top (
   inout [15:0] sdram_dq
 
 );
+  wire locked, sys_clk;
   wire sdram_oe;
   wire [15:0] sdram_din;
   wire [15:0] sdram_dout;
   wire reset = !key[0];
 
-  assign sdram_clk = clk;
+  assign sdram_clk = sys_clk;
   assign sdram_dq = sdram_oe ? sdram_din : 16'bZ;
   assign sdram_dout = sdram_dq;
 
+  pll pll (
+    .areset(reset),
+    .inclk0(clk),
+    .c0(sys_clk),
+    .locked(locked)
+  );
+
   Demo demo (
     .clock(sys_clk),
-    .reset(reset),
+    .reset(!locked),
     .io_led(led),
     .io_sdram_cke(sdram_cke),
     .io_sdram_cs(sdram_cs_n),
