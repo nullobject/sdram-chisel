@@ -102,7 +102,7 @@ set_location_assignment PIN_K1  -to sdram_dq[15]
 
 set_global_assignment -name PROJECT_OUTPUT_DIRECTORY output_files
 set_global_assignment -name TOP_LEVEL_ENTITY top
-set_global_assignment -name VHDL_FILE rtl/top.vhd
+set_global_assignment -name VERILOG_FILE rtl/top.v
 set_global_assignment -name VERILOG_FILE rtl/ChiselTop.v
 set_global_assignment -name VHDL_FILE rtl/single_port_rom.vhd
 set_global_assignment -name SDC_FILE rtl/sdram.sdc
