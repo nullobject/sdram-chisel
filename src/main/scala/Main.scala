@@ -36,42 +36,54 @@
  */
 
 import chisel3._
-import chiseltest._
-import chiseltest.experimental.UncheckedClockPoke._
-import org.scalatest._
+import chisel3.stage.{ChiselGeneratorAnnotation, ChiselStage}
+import mem._
 
-class DataFreezerTest extends FlatSpec with ChiselScalatestTester with Matchers {
-  it should "freeze a read request" in {
-    test(new DataFreezer(hold = 2, addrWidth = 8, dataWidth = 8)) { dut =>
-      // Read
-      dut.io.out.rd.expect(false.B)
-      dut.io.in.rd.poke(true.B)
-      dut.io.out.rd.expect(true.B)
+/** This is the top-level module */
+class Main extends Module {
+  val CLOCK_FREQ = 50000000D
+  val HOLD = 10
 
-      // Wait
-      dut.io.out.waitReq.poke(true.B)
-      dut.io.in.waitReq.expect(true.B)
-      dut.io.out.waitReq.poke(false.B)
-      dut.io.in.waitReq.expect(false.B)
+  // SDRAM configuration
+  val sdramConfig = SDRAMConfig(clockFreq = CLOCK_FREQ, burstLength = 2)
 
-      // Valid
-//      dut.io.targetClock.low()
-      dut.io.in.valid.expect(false.B)
-      dut.io.out.valid.poke(true.B)
-      dut.io.out.dout.poke(1.U)
-      dut.clock.step()
-      dut.io.in.valid.expect(true.B)
-      dut.io.in.dout.expect(1.U)
-//      dut.io.targetClock.high()
-//      dut.io.targetClock.low()
-      dut.io.out.dout.poke(0.U)
-      dut.io.in.valid.expect(true.B)
-      dut.io.in.dout.expect(1.U)
-//      dut.io.targetClock.high()
-//      dut.io.targetClock.low()
-      dut.clock.step()
-      dut.io.in.valid.expect(false.B)
-      dut.io.in.dout.expect(0.U)
-    }
-  }
+  // Memory multiplexer configuration
+  val memMuxConfig = MemMuxConfig(
+    addrWidth = sdramConfig.logicalAddrWidth,
+    dataWidth = sdramConfig.logicalDataWidth,
+    slots = Seq(
+      // Write slot
+      SlotConfig(8, 8, depth = 1),
+      // Read slot
+      SlotConfig(8, 8, depth = 4)
+    )
+  )
+
+  val io = IO(new Bundle {
+    val cpuClock = Input(Clock())
+    val led = Output(UInt(8.W))
+    val sdram = SDRAMIO(sdramConfig)
+  })
+
+  // SDRAM
+  val sdram = Module(new SDRAM(sdramConfig))
+  sdram.io.sdram <> io.sdram
+
+  // Memory multiplexer
+  val memMux = Module(new MemMux(memMuxConfig))
+  memMux.io.out <> sdram.io.mem
+
+  val demo = withClock(io.cpuClock) { Module(new Demo) }
+  demo.io.write <> DataFreezer.freeze(HOLD, memMux.io.in(0)).asAsyncWriteMemIO
+  demo.io.read <> DataFreezer.freeze(HOLD, memMux.io.in(1)).asAsyncReadMemIO
+
+  // Outputs
+  io.led := demo.io.led
+}
+
+object Main extends App {
+  (new ChiselStage).execute(
+    Array("--compiler", "verilog", "--target-dir", "quartus/rtl", "--output-file", "ChiselTop"),
+    Seq(ChiselGeneratorAnnotation(() => new Main()))
+  )
 }

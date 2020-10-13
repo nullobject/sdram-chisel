@@ -36,6 +36,7 @@
  */
 
 import chisel3._
+import chisel3.util._
 import mem._
 
 /**
@@ -48,8 +49,6 @@ import mem._
  */
 class DataFreezer(hold: Int, addrWidth: Int, dataWidth: Int) extends Module {
   val io = IO(new Bundle {
-    /** Fast clock */
-    val fastClock = Input(Clock())
     /** Input port */
     val in = Flipped(AsyncReadWriteMemIO(addrWidth, dataWidth))
     /** Output port (fast clock domain) */
@@ -59,16 +58,13 @@ class DataFreezer(hold: Int, addrWidth: Int, dataWidth: Int) extends Module {
   // Connect input/output ports
   io.in <> io.out
 
-  withClock(io.fastClock) {
-    // Stretch valid pulses so they are long enough to be latched in the slow clock domain
-    val valid = Util.stretch(hold, io.out.valid)
+  val (_, counterWrap) = Counter(true.B, hold)
 
-    // Hold the output data using the stretched valid pulse
-    val dout = Util.hold(io.out.dout, valid)
-
-    io.in.valid := valid
-    io.in.dout := dout
-  }
+  // Outputs
+  io.out.rd := io.in.rd
+  io.out.wr := io.in.wr
+  io.in.valid := Util.stretch(io.out.valid, counterWrap)
+  io.in.waitReq := !Util.stretch(!io.out.waitReq, counterWrap)
 }
 
 object DataFreezer {
@@ -77,12 +73,11 @@ object DataFreezer {
    *
    * The returned memory interface will operate in the fast clock domain.
    *
-   * @param fastClock The fast clock.
+   * @param hold The number of clock cycles to hold the signal.
    * @param mem The memory interface.
    */
-  def freeze(fastClock: Clock, mem: AsyncReadWriteMemIO): AsyncReadWriteMemIO = {
-    val freezer = Module(new DataFreezer(16, mem.addrWidth, mem.dataWidth))
-    freezer.io.fastClock := fastClock
+  def freeze(hold: Int, mem: AsyncReadWriteMemIO): AsyncReadWriteMemIO = {
+    val freezer = Module(new DataFreezer(hold, mem.addrWidth, mem.dataWidth))
     freezer.io.out <> mem
     freezer.io.in
   }

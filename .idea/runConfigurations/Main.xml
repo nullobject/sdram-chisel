@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Demo" type="Application" factoryName="Application">
-    <option name="MAIN_CLASS_NAME" value="Demo" />
+  <configuration default="false" name="Main" type="Application" factoryName="Application">
+    <option name="MAIN_CLASS_NAME" value="Main" />
     <module name="sdram-chisel" />
     <method v="2">
       <option name="Make" enabled="true" />

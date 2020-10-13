@@ -36,87 +36,47 @@
  */
 
 import chisel3._
-import chisel3.stage.{ChiselGeneratorAnnotation, ChiselStage}
 import chisel3.util._
 import mem._
 
-/** This is the top-level module for the demo circuit. */
 class Demo extends Module {
-  val CLOCK_FREQ = 50000000D
-
-  // SDRAM configuration
-  val sdramConfig = SDRAMConfig(clockFreq = CLOCK_FREQ, burstLength = 2)
-
-  // Memory multiplexer configuration
-  val memMuxConfig = MemMuxConfig(
-    addrWidth = sdramConfig.logicalAddrWidth,
-    dataWidth = sdramConfig.logicalDataWidth,
-    slots = Seq(
-      // Write slot
-      SlotConfig(8, 8, depth = 1),
-      // Read slot
-      SlotConfig(8, 8, depth = 16)
-    )
-  )
-
   val io = IO(new Bundle {
-    val fastClock = Input(Clock())
+    val write = AsyncWriteMemIO(8, 8)
+    val read = AsyncReadMemIO(8, 8)
     val led = Output(UInt(8.W))
-    val sdram = SDRAMIO(sdramConfig)
   })
 
   // States
   val writeState :: readState :: Nil = Enum(2)
 
   // Wires
-  val waitCounterEnable = Wire(Bool())
-  val addrCounterEnable = Wire(Bool())
+  val writeCounterEnable = Wire(Bool())
+  val readCounterEnable = Wire(Bool())
 
   // Registers
   val stateReg = RegInit(writeState)
-  val pendingReg = RegInit(true.B)
 
   // Counters
-  val (_, waitCounterWrap) = Counter(0 until (CLOCK_FREQ/10).ceil.toInt, enable = waitCounterEnable)
-  val (addrCounterValue, addrCounterWrap) = Counter(0 until 256, enable = addrCounterEnable)
+  //
+  // The write counter overshoots the address range to ensure the write cache line is flushed to
+  // memory. This could be avoided if we were able to manually flush the cache.
+  val (writeAddrCounterValue, writeCounterWrap) = Counter(0 until 20, enable = writeCounterEnable)
+  val (readAddrCounterValue, _) = Counter(0 until 16, enable = readCounterEnable)
 
   // Control signals
-  val read = stateReg === readState
-  val write = stateReg === writeState
-
-  // SDRAM
-  val sdram = Module(new SDRAM(sdramConfig))
-
-  // Memory multiplexer
-  val memMux = Module(new MemMux(memMuxConfig))
-  memMux.io.out <> sdram.io.mem
-  memMux.io.in(0).rd := false.B
-  memMux.io.in(0).wr := write
-  memMux.io.in(0).addr := addrCounterValue
-  memMux.io.in(0).din := addrCounterValue
-  memMux.io.in(1).rd := read
-  memMux.io.in(1).wr := false.B
-  memMux.io.in(1).addr := addrCounterValue
-  memMux.io.in(1).din := 0.U
-
-  // Toggle counter enable signals
-  waitCounterEnable := read && pendingReg
-  addrCounterEnable := (write && !memMux.io.in(0).waitReq) || (read && waitCounterWrap)
-
-  // Toggle pending register
-  when(waitCounterWrap) { pendingReg := false.B }.elsewhen(read && !memMux.io.in(1).waitReq) { pendingReg := true.B }
+  val readEnable = stateReg === readState
+  val writeEnable = stateReg === writeState
+  writeCounterEnable := writeEnable && !io.write.waitReq
+  readCounterEnable := readEnable && !io.read.waitReq
 
   // Set read state
-  when(addrCounterWrap) { stateReg := readState }
+  when(writeCounterWrap) { stateReg := readState }
 
   // Outputs
-  io.led := RegEnable(memMux.io.in(1).dout, 0.U, memMux.io.in(1).valid)
-  io.sdram <> sdram.io.sdram
-}
-
-object Demo extends App {
-  (new ChiselStage).execute(
-    Array("--compiler", "verilog", "--target-dir", "quartus/rtl", "--output-file", "ChiselTop"),
-    Seq(ChiselGeneratorAnnotation(() => new Demo()))
-  )
+  io.write.wr := writeEnable
+  io.write.addr := writeAddrCounterValue
+  io.write.din := writeAddrCounterValue
+  io.read.rd := readEnable
+  io.read.addr := readAddrCounterValue
+  io.led := RegEnable(io.read.dout, 0.U, io.read.valid)
 }

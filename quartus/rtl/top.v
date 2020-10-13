@@ -58,7 +58,7 @@ module top (
   wire [15:0] sdram_dout;
   wire reset = !key[0];
 
-  assign sdram_clk = sys_clk;
+  assign sdram_clk = clk;
   assign sdram_dq = sdram_oe ? sdram_din : 16'bZ;
   assign sdram_dout = sdram_dq;
 
@@ -69,10 +69,10 @@ module top (
     .locked(locked)
   );
 
-  Demo demo (
-    .clock(sys_clk),
+  Main main (
+    .clock(clk),
     .reset(!locked),
-    .io_fastClock(clk),
+    .io_cpuClock(sys_clk),
     .io_led(led),
     .io_sdram_cke(sdram_cke),
     .io_sdram_cs(sdram_cs_n),
