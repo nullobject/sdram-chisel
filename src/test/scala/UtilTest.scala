@@ -36,47 +36,77 @@
  */
 
 import chisel3._
-import chisel3.util._
+import chiseltest._
+import org.scalatest._
 
-/** Utility functions. */
-object Util {
-  /**
-   * Detects rising edges of a signal.
-   *
-   * @param s The signal used to detect edges.
-   */
-  def rising(s: Bool): Bool = s && !RegNext(s)
+class UtilTest extends FlatSpec with ChiselScalatestTester with Matchers {
+  "rising" should "detect rising edges" in {
+    test(new Module {
+      val io = IO(new Bundle {
+        val a = Input(Bool())
+        val b = Output(Bool())
+      })
+      io.b := Util.rising(io.a)
+    }) { dut =>
+      dut.io.a.poke(false.B)
+      dut.clock.step()
+      dut.io.a.poke(true.B)
+      dut.io.b.expect(true.B)
 
-  /**
-   * Detects falling edges of a signal.
-   *
-   * @param s The signal used to detect edges.
-   */
-  def falling(s: Bool): Bool = !s && RegNext(s)
+      dut.io.a.poke(false.B)
+      dut.clock.step()
+      dut.io.b.expect(false.B)
 
-  /**
-   * Stretches a pulse.
-   *
-   * @param s The signal value.
-   * @param clear Clears the pulse when asserted.
-   */
-  def stretch(s: Bool, clear: Bool): Bool = {
-    val enable = RegInit(false.B)
-    when(clear) { enable := false.B }.elsewhen(s) { enable := true.B }
-    s || enable
+      dut.io.a.poke(true.B)
+      dut.clock.step()
+      dut.io.b.expect(false.B)
+    }
   }
 
-  /**
-   * Holds a signal.
-   *
-   * @param s The signal value.
-   * @param t The trigger value.
-   * @param clear Clears the signal when asserted.
-   */
-  def hold[T <: Data](s: T, t: Bool, clear: Bool): T = {
-    val enable = RegInit(false.B)
-    val data = RegEnable(s, t && !enable)
-    when(clear) { enable := false.B }.elsewhen(t) { enable := true.B }
-    Mux(enable, data, s)
+  "falling" should "detect falling edges" in {
+    test(new Module {
+      val io = IO(new Bundle {
+        val a = Input(Bool())
+        val b = Output(Bool())
+      })
+     io.b := Util.falling(io.a)
+    }) { dut =>
+      dut.io.a.poke(true.B)
+      dut.clock.step()
+      dut.io.a.poke(false.B)
+      dut.io.b.expect(true.B)
+
+      dut.io.a.poke(false.B)
+      dut.clock.step()
+      dut.io.b.expect(false.B)
+
+      dut.io.a.poke(true.B)
+      dut.clock.step()
+      dut.io.b.expect(false.B)
+    }
+  }
+
+  "stretch" should "stretch a pulse until the clear signal is asserted" in {
+    test(new Module {
+      val io = IO(new Bundle {
+        val a = Input(Bool())
+        val b = Input(Bool())
+        val c = Output(Bool())
+      })
+      io.c := Util.stretch(io.a, io.b)
+    }) { dut =>
+      dut.io.a.poke(true.B)
+      dut.io.c.expect(true.B)
+      dut.clock.step()
+      dut.io.a.poke(false.B)
+      dut.io.c.expect(true.B)
+      dut.clock.step()
+      dut.io.a.poke(true.B)
+      dut.io.b.poke(true.B)
+      dut.io.c.expect(true.B)
+      dut.clock.step()
+      dut.io.a.poke(false.B)
+      dut.io.c.expect(false.B)
+    }
   }
 }
