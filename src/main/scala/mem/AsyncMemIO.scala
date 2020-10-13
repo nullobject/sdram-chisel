@@ -89,7 +89,7 @@ class AsyncReadWriteMemIO private[mem] (addrWidth: Int, dataWidth: Int) extends 
 
   override def cloneType: this.type = new AsyncReadWriteMemIO(addrWidth, dataWidth).asInstanceOf[this.type]
 
-  /** Converts this interface to read-only */
+  /** Converts the interface to read-only */
   def asReadMemIO: ReadMemIO = {
     val wire = Wire(Flipped(ReadMemIO(addrWidth, dataWidth)))
     rd := wire.rd
@@ -97,6 +97,30 @@ class AsyncReadWriteMemIO private[mem] (addrWidth: Int, dataWidth: Int) extends 
     addr := wire.addr
     din := 0.U
     wire.dout := dout
+    wire
+  }
+
+  /** Converts the interface to read-only */
+  def asAsyncReadMemIO: AsyncReadMemIO = {
+    val wire = Wire(Flipped(AsyncReadMemIO(addrWidth, dataWidth)))
+    rd := wire.rd
+    wr := false.B
+    wire.valid := valid
+    wire.waitReq := waitReq
+    addr := wire.addr
+    din := 0.U
+    wire.dout := dout
+    wire
+  }
+
+  /** Converts the interface to write-only */
+  def asAsyncWriteMemIO: AsyncWriteMemIO = {
+    val wire = Wire(Flipped(AsyncWriteMemIO(addrWidth, dataWidth)))
+    rd := false.B
+    wr := wire.wr
+    wire.waitReq := waitReq
+    addr := wire.addr
+    din := wire.din
     wire
   }
 }
