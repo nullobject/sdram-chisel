@@ -75,7 +75,7 @@ trait CacheMemHelpers {
   protected def writeCacheLine(dut: CacheMem, addr: Int, data: Int) = {
     dut.io.in.rd.poke(true.B)
     dut.io.in.addr.poke(addr.U)
-    dut.io.out.waitReq.poke(false.B)
+    dut.io.out.ack.poke(false.B)
     dut.clock.step()
     dut.io.in.rd.poke(false.B)
     dut.clock.step()
@@ -105,11 +105,11 @@ class CacheMemTest extends FlatSpec with ChiselScalatestTester with Matchers wit
   it should "deassert the wait signal during the idle state" in {
     test(mkCacheMem()) { dut =>
       dut.io.in.rd.poke(true.B)
-      dut.io.in.waitReq.expect(true.B)
+      dut.io.in.ack.expect(true.B)
       waitForIdle(dut)
-      dut.io.in.waitReq.expect(false.B)
+      dut.io.in.ack.expect(false.B)
       waitForCheck(dut)
-      dut.io.in.waitReq.expect(true.B)
+      dut.io.in.ack.expect(true.B)
     }
   }
 

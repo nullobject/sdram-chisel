@@ -60,14 +60,14 @@ class Demo extends Module {
   //
   // The write counter overshoots the address range to ensure the write cache line is flushed to
   // memory. This could be avoided if we were able to manually flush the cache.
-  val (writeAddrCounterValue, writeCounterWrap) = Counter(0 until 20, enable = writeCounterEnable)
-  val (readAddrCounterValue, _) = Counter(0 until 16, enable = readCounterEnable)
+  val (writeAddrCounterValue, writeCounterWrap) = Counter(0 until 512, enable = writeCounterEnable)
+  val (readAddrCounterValue, _) = Counter(0 until 256, enable = readCounterEnable)
 
   // Control signals
   val readEnable = stateReg === readState
   val writeEnable = stateReg === writeState
-  writeCounterEnable := writeEnable && !io.write.waitReq
-  readCounterEnable := readEnable && !io.read.waitReq
+  writeCounterEnable := writeEnable && io.write.ack
+  readCounterEnable := readEnable && io.read.ack
 
   // Set read state
   when(writeCounterWrap) { stateReg := readState }

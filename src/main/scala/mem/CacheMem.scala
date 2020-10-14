@@ -128,9 +128,7 @@ class CacheMem(config: CacheConfig) extends Module {
     })
   })
 
-  // Input/output port aliases
-  val in = io.in
-  val out = io.out
+  // Convert input address to a cache address
   val inAddr = io.in.addr.asTypeOf(new CacheAddress(config))
 
   // States
@@ -141,9 +139,9 @@ class CacheMem(config: CacheConfig) extends Module {
 
   // Registers
   val stateReg = RegInit(initState)
-  val writeReg = RegEnable(in.wr, stateReg === idleState)
+  val writeReg = RegEnable(io.in.wr, stateReg === idleState)
   val addrReg = RegEnable(inAddr, stateReg === idleState)
-  val dataReg = RegEnable(in.din, stateReg === idleState)
+  val dataReg = RegEnable(io.in.din, stateReg === idleState)
 
   // Counters
   val (counterValue, counterWrap) = Counter(stateReg === initState, config.depth)
@@ -155,8 +153,8 @@ class CacheMem(config: CacheConfig) extends Module {
   val dirty = entry.dirty && entry.tag =/= addrReg.tag
   val hit = entry.valid && entry.tag === addrReg.tag
   val miss = !hit
-  val waitReq = (dirty || miss) && out.waitReq
-  val request = in.rd || in.wr
+  val waitReq = (dirty || miss) && !io.out.ack
+  val request = io.in.rd || io.in.wr
 
   // Set output address to cache entry address during an eviction, otherwise use the cache address
   val outAddr = Mux(stateReg === checkState && dirty, entry.tag, addrReg.tag) ## addrReg.index
@@ -170,11 +168,11 @@ class CacheMem(config: CacheConfig) extends Module {
   }
 
   // Fill cache line from memory
-  when(stateReg === lineFillState && out.valid) {
+  when(stateReg === lineFillState && io.out.valid) {
     entry.valid := true.B
     entry.dirty := false.B
     entry.tag := addrReg.tag
-    entry.line := out.dout.asTypeOf(new CacheLine(config))
+    entry.line := io.out.dout.asTypeOf(new CacheLine(config))
     mem.write(addrReg.index, entry)
   }
 
@@ -212,23 +210,23 @@ class CacheMem(config: CacheConfig) extends Module {
 
     // Fill cache line
     is(lineFillState) {
-      when(out.valid) { stateReg := checkState }
+      when(io.out.valid) { stateReg := checkState }
     }
 
     // Evict dirty cache entry
     is(evictState) {
-      when(!out.waitReq) { stateReg := lineFillState }
+      when(io.out.ack) { stateReg := lineFillState }
     }
   }
 
   // Outputs
-  in.valid := stateReg === checkState && hit && !writeReg
-  in.waitReq := stateReg =/= idleState && request
-  in.dout := entry.line.words(addrReg.offset)
-  out.rd := (stateReg === checkState && !dirty && miss) || stateReg === evictState
-  out.wr := stateReg === checkState && dirty
-  out.addr := outAddr + config.offset.U
-  out.din := entry.line.asUInt
+  io.in.valid := stateReg === checkState && hit && !writeReg
+  io.in.ack := stateReg === idleState && request
+  io.in.dout := entry.line.words(addrReg.offset)
+  io.out.rd := (stateReg === checkState && !dirty && miss) || stateReg === evictState
+  io.out.wr := stateReg === checkState && dirty
+  io.out.addr := outAddr + config.offset.U
+  io.out.din := entry.line.asUInt
   io.debug.idle := stateReg === idleState
   io.debug.check := stateReg === checkState
   io.debug.lineFill := stateReg === lineFillState

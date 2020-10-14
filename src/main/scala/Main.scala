@@ -41,8 +41,7 @@ import mem._
 
 /** This is the top-level module */
 class Main extends Module {
-  val CLOCK_FREQ = 50000000D
-  val HOLD = 10
+  val CLOCK_FREQ = 48000000D
 
   // SDRAM configuration
   val sdramConfig = SDRAMConfig(clockFreq = CLOCK_FREQ, burstLength = 2)
@@ -73,9 +72,13 @@ class Main extends Module {
   val memMux = Module(new MemMux(memMuxConfig))
   memMux.io.out <> sdram.io.mem
 
+  // Demo
+  //
+  // The demo module runs in the CPU (slow) clock domain, so the memory slots must be frozen from
+  // the system (fast) clock domain.
   val demo = withClock(io.cpuClock) { Module(new Demo) }
-  demo.io.write <> DataFreezer.freeze(HOLD, memMux.io.in(0)).asAsyncWriteMemIO
-  demo.io.read <> DataFreezer.freeze(HOLD, memMux.io.in(1)).asAsyncReadMemIO
+  demo.io.write <> DataFreezer.freeze(io.cpuClock) { memMux.io.in(0) }.asAsyncWriteMemIO
+  demo.io.read <> DataFreezer.freeze(io.cpuClock) { memMux.io.in(1) }.asAsyncReadMemIO
 
   // Outputs
   io.led := demo.io.led

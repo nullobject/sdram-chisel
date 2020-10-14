@@ -41,6 +41,13 @@ import chisel3.util._
 /** Utility functions. */
 object Util {
   /**
+   * Detects edges of a signal.
+   *
+   * @param s The signal used to detect edges.
+   */
+  def edge(s: Bool): Bool = s ^ RegNext(s)
+
+  /**
    * Detects rising edges of a signal.
    *
    * @param s The signal used to detect edges.
@@ -55,28 +62,32 @@ object Util {
   def falling(s: Bool): Bool = !s && RegNext(s)
 
   /**
-   * Stretches a pulse.
+   * Latches a signal.
+   *
+   * Once latched, the output signal will remain asserted until the latch is reset.
    *
    * @param s The signal value.
-   * @param clear Clears the pulse when asserted.
    */
-  def stretch(s: Bool, clear: Bool): Bool = {
+  def latch(s: Bool): Bool = {
     val enable = RegInit(false.B)
-    when(clear) { enable := false.B }.elsewhen(s) { enable := true.B }
+    when(s) { enable := true.B }
     s || enable
   }
 
+  /** Toggles a bit. */
+  def toggle: Bool = {
+    val a = RegInit(false.B)
+    a := !a
+    a
+  }
+
   /**
-   * Holds a signal.
+   * Generates a sync pulse for each rising edge of the target clock.
    *
-   * @param s The signal value.
-   * @param t The trigger value.
-   * @param clear Clears the signal when asserted.
+   * @param targetClock The target clock domain.
    */
-  def hold[T <: Data](s: T, t: Bool, clear: Bool): T = {
-    val enable = RegInit(false.B)
-    val data = RegEnable(s, t && !enable)
-    when(clear) { enable := false.B }.elsewhen(t) { enable := true.B }
-    Mux(enable, data, s)
+  def sync(targetClock: Clock): Bool = {
+    val s = withClock(targetClock) { toggle }
+    edge(s)
   }
 }

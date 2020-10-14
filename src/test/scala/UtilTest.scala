@@ -37,9 +37,29 @@
 
 import chisel3._
 import chiseltest._
+import chiseltest.experimental.UncheckedClockPoke._
 import org.scalatest._
 
 class UtilTest extends FlatSpec with ChiselScalatestTester with Matchers {
+  "edge" should "detect edges" in {
+    test(new Module {
+      val io = IO(new Bundle {
+        val a = Input(Bool())
+        val b = Output(Bool())
+      })
+      io.b := Util.edge(io.a)
+    }) { dut =>
+      dut.io.a.poke(false.B)
+      dut.io.b.expect(false.B)
+      dut.clock.step()
+      dut.io.a.poke(true.B)
+      dut.io.b.expect(true.B)
+      dut.clock.step()
+      dut.io.a.poke(false.B)
+      dut.io.b.expect(true.B)
+    }
+  }
+
   "rising" should "detect rising edges" in {
     test(new Module {
       val io = IO(new Bundle {
@@ -49,16 +69,12 @@ class UtilTest extends FlatSpec with ChiselScalatestTester with Matchers {
       io.b := Util.rising(io.a)
     }) { dut =>
       dut.io.a.poke(false.B)
+      dut.io.b.expect(false.B)
       dut.clock.step()
       dut.io.a.poke(true.B)
       dut.io.b.expect(true.B)
-
+      dut.clock.step()
       dut.io.a.poke(false.B)
-      dut.clock.step()
-      dut.io.b.expect(false.B)
-
-      dut.io.a.poke(true.B)
-      dut.clock.step()
       dut.io.b.expect(false.B)
     }
   }
@@ -72,41 +88,71 @@ class UtilTest extends FlatSpec with ChiselScalatestTester with Matchers {
      io.b := Util.falling(io.a)
     }) { dut =>
       dut.io.a.poke(true.B)
+      dut.io.b.expect(false.B)
       dut.clock.step()
       dut.io.a.poke(false.B)
       dut.io.b.expect(true.B)
-
+      dut.clock.step()
       dut.io.a.poke(false.B)
-      dut.clock.step()
-      dut.io.b.expect(false.B)
-
-      dut.io.a.poke(true.B)
-      dut.clock.step()
       dut.io.b.expect(false.B)
     }
   }
 
-  "stretch" should "stretch a pulse until the clear signal is asserted" in {
+  "latch" should "latch a pulse" in {
     test(new Module {
       val io = IO(new Bundle {
         val a = Input(Bool())
-        val b = Input(Bool())
-        val c = Output(Bool())
+        val b = Output(Bool())
       })
-      io.c := Util.stretch(io.a, io.b)
+      io.b := Util.latch(io.a)
     }) { dut =>
       dut.io.a.poke(true.B)
-      dut.io.c.expect(true.B)
+      dut.io.b.expect(true.B)
       dut.clock.step()
       dut.io.a.poke(false.B)
-      dut.io.c.expect(true.B)
+      dut.io.b.expect(true.B)
       dut.clock.step()
+      dut.reset.poke(true.B)
       dut.io.a.poke(true.B)
-      dut.io.b.poke(true.B)
-      dut.io.c.expect(true.B)
+      dut.io.b.expect(true.B)
       dut.clock.step()
+      dut.reset.poke(false.B)
       dut.io.a.poke(false.B)
-      dut.io.c.expect(false.B)
+      dut.io.b.expect(false.B)
+    }
+  }
+
+  "toggle" should "toggle a bit" in {
+    test(new Module {
+      val io = IO(new Bundle {
+        val a = Output(Bool())
+      })
+      io.a := Util.toggle
+    }) { dut =>
+      dut.io.a.expect(false.B)
+      dut.clock.step()
+      dut.io.a.expect(true.B)
+      dut.clock.step()
+      dut.io.a.expect(false.B)
+    }
+  }
+
+  "sync" should "generate a sync pulse" in {
+    test(new Module {
+      val io = IO(new Bundle {
+        val a = Input(Clock())
+        val b = Output(Bool())
+      })
+      io.b := Util.sync(io.a)
+    }) { dut =>
+      dut.io.a.low()
+      dut.io.b.expect(false.B)
+      dut.clock.step()
+      dut.io.a.high()
+      dut.io.b.expect(true.B)
+      dut.clock.step()
+      dut.io.a.low()
+      dut.io.b.expect(false.B)
     }
   }
 }

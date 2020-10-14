@@ -92,44 +92,44 @@ class MemArbiterTest extends FlatSpec with ChiselScalatestTester with Matchers {
     test(mkMemArbiter) { dut =>
       dut.io.in(0).addr.poke(1.U)
       dut.io.in(1).addr.poke(2.U)
-      dut.io.in(0).waitReq.expect(false.B)
-      dut.io.in(1).waitReq.expect(false.B)
+      dut.io.in(0).ack.expect(false.B)
+      dut.io.in(1).ack.expect(false.B)
 
       // Read 0
       dut.io.in(0).rd.poke(true.B)
       dut.io.in(1).rd.poke(false.B)
 
       // Wait
-      dut.io.out.waitReq.poke(true.B)
-      dut.io.in(0).waitReq.expect(true.B)
-      dut.io.in(1).waitReq.expect(false.B)
-      dut.io.out.waitReq.poke(false.B)
-      dut.io.in(0).waitReq.expect(false.B)
-      dut.io.in(1).waitReq.expect(false.B)
+      dut.io.out.ack.poke(true.B)
+      dut.io.in(0).ack.expect(true.B)
+      dut.io.in(1).ack.expect(false.B)
+      dut.io.out.ack.poke(false.B)
+      dut.io.in(0).ack.expect(false.B)
+      dut.io.in(1).ack.expect(false.B)
 
       // Read 1
       dut.io.in(0).rd.poke(false.B)
       dut.io.in(1).rd.poke(true.B)
 
       // Wait
-      dut.io.out.waitReq.poke(true.B)
-      dut.io.in(0).waitReq.expect(false.B)
-      dut.io.in(1).waitReq.expect(true.B)
-      dut.io.out.waitReq.poke(false.B)
-      dut.io.in(0).waitReq.expect(false.B)
-      dut.io.in(1).waitReq.expect(false.B)
+      dut.io.out.ack.poke(true.B)
+      dut.io.in(0).ack.expect(false.B)
+      dut.io.in(1).ack.expect(true.B)
+      dut.io.out.ack.poke(false.B)
+      dut.io.in(0).ack.expect(false.B)
+      dut.io.in(1).ack.expect(false.B)
 
       // Read 1+2
       dut.io.in(0).rd.poke(true.B)
       dut.io.in(1).rd.poke(true.B)
 
       // Wait
-      dut.io.out.waitReq.poke(true.B)
-      dut.io.in(0).waitReq.expect(true.B)
-      dut.io.in(1).waitReq.expect(true.B)
-      dut.io.out.waitReq.poke(false.B)
-      dut.io.in(0).waitReq.expect(false.B)
-      dut.io.in(1).waitReq.expect(true.B)
+      dut.io.out.ack.poke(true.B)
+      dut.io.in(0).ack.expect(true.B)
+      dut.io.in(1).ack.expect(true.B)
+      dut.io.out.ack.poke(false.B)
+      dut.io.in(0).ack.expect(false.B)
+      dut.io.in(1).ack.expect(true.B)
     }
   }
 }

@@ -52,10 +52,9 @@ module top (
   inout [15:0] sdram_dq
 
 );
-  wire locked, sys_clk;
+  wire sys_clk, cpu_clk, locked;
   wire sdram_oe;
-  wire [15:0] sdram_din;
-  wire [15:0] sdram_dout;
+  wire [15:0] sdram_din, sdram_dout;
   wire reset = !key[0];
 
   assign sdram_clk = clk;
@@ -66,13 +65,14 @@ module top (
     .areset(reset),
     .inclk0(clk),
     .c0(sys_clk),
+    .c1(cpu_clk),
     .locked(locked)
   );
 
-  Main main (
-    .clock(clk),
+  Main demo_inst (
+    .clock(sys_clk),
     .reset(!locked),
-    .io_cpuClock(sys_clk),
+    .io_cpuClock(cpu_clk),
     .io_led(led),
     .io_sdram_cke(sdram_cke),
     .io_sdram_cs(sdram_cs_n),

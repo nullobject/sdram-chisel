@@ -314,23 +314,23 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
 
       // Request
       dut.io.mem.rd.poke(true.B)
-      dut.io.mem.waitReq.expect(false.B)
+      dut.io.mem.ack.expect(false.B)
       waitForActive(dut)
 
       // Wait
-      dut.io.mem.waitReq.expect(true.B)
+      dut.io.mem.ack.expect(true.B)
       dut.io.mem.rd.poke(false.B)
-      dut.io.mem.waitReq.expect(false.B)
+      dut.io.mem.ack.expect(false.B)
       waitForRead(dut)
 
       // Read
-      dut.io.mem.waitReq.expect(false.B)
+      dut.io.mem.ack.expect(false.B)
       dut.clock.step()
-      dut.io.mem.waitReq.expect(false.B)
+      dut.io.mem.ack.expect(false.B)
       dut.clock.step()
-      dut.io.mem.waitReq.expect(false.B)
+      dut.io.mem.ack.expect(false.B)
       dut.io.mem.rd.poke(true.B)
-      dut.io.mem.waitReq.expect(false.B)
+      dut.io.mem.ack.expect(false.B)
     }
   }
 
@@ -425,23 +425,23 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
 
       // Request
       dut.io.mem.wr.poke(true.B)
-      dut.io.mem.waitReq.expect(false.B)
+      dut.io.mem.ack.expect(false.B)
       waitForActive(dut)
 
       // Wait
-      dut.io.mem.waitReq.expect(true.B)
+      dut.io.mem.ack.expect(true.B)
       dut.io.mem.wr.poke(false.B)
-      dut.io.mem.waitReq.expect(false.B)
+      dut.io.mem.ack.expect(false.B)
       waitForWrite(dut)
 
       // Write
-      dut.io.mem.waitReq.expect(false.B)
+      dut.io.mem.ack.expect(false.B)
       dut.clock.step()
-      dut.io.mem.waitReq.expect(false.B)
+      dut.io.mem.ack.expect(false.B)
       dut.clock.step()
-      dut.io.mem.waitReq.expect(false.B)
+      dut.io.mem.ack.expect(false.B)
       dut.io.mem.wr.poke(true.B)
-      dut.io.mem.waitReq.expect(false.B)
+      dut.io.mem.ack.expect(false.B)
     }
   }
 
@@ -462,16 +462,16 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
     test(mkSDRAM()) { dut =>
       waitForIdle(dut)
       dut.clock.step(9)
-      dut.io.mem.waitReq.expect(false.B)
+      dut.io.mem.ack.expect(false.B)
       dut.io.mem.rd.poke(true.B)
-      dut.io.mem.waitReq.expect(true.B)
+      dut.io.mem.ack.expect(true.B)
       dut.clock.step()
 
       // Refresh
       dut.io.debug.refresh.expect(true.B)
-      dut.io.mem.waitReq.expect(true.B)
+      dut.io.mem.ack.expect(true.B)
       dut.clock.step()
-      dut.io.mem.waitReq.expect(false.B)
+      dut.io.mem.ack.expect(false.B)
     }
   }
 }

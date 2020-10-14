@@ -36,48 +36,70 @@
  */
 
 import chisel3._
-import chisel3.util._
 import mem._
 
 /**
- * Transfers asynchronous memory IO signals between clock domains.
+ * Transfers asynchronous memory IO control signals between clock domains.
  *
- * @param hold The number of clock cycles to hold signals when transferring them from the fast clock
- *             domain to the slow clock domain.
+ * The data freezer requires the system clock domain frequency to be an integer multiple of the
+ * target clock domain frequency. For example, a system clock of 48MHz can be frozen to a target
+ * clock of 6MHz.
+ *
  * @param addrWidth The width of the address bus.
  * @param dataWidth The width of the data bus.
  */
-class DataFreezer(hold: Int, addrWidth: Int, dataWidth: Int) extends Module {
+class DataFreezer(addrWidth: Int, dataWidth: Int) extends Module {
   val io = IO(new Bundle {
+    /** The target clock domain */
+    val targetClock = Input(Clock())
     /** Input port */
     val in = Flipped(AsyncReadWriteMemIO(addrWidth, dataWidth))
-    /** Output port (fast clock domain) */
+    /** Output port */
     val out = AsyncReadWriteMemIO(addrWidth, dataWidth)
   })
 
   // Connect input/output ports
   io.in <> io.out
 
-  val (_, counterWrap) = Counter(true.B, hold)
+  // Registers
+  val pendingReg = RegInit(false.B)
+
+  // Hold control pulses for long enough to be latched in the target clock domain (i.e. until a
+  // rising edge of the target clock)
+  val clear = Util.sync(io.targetClock)
+  val ack = withReset(clear) { Util.latch(io.out.ack) }
+  val valid = withReset(clear) { Util.latch(io.out.valid) }
+
+  // Assert request signal when there is a pending read/write request
+  val request = io.in.rd || io.in.wr
+
+  // Set the pending register when a request is acknowledged. It is cleared by a rising edge of
+  // the target clock.
+  when(clear && ack) {
+    pendingReg := false.B
+  }.elsewhen(request && ack) {
+    pendingReg := true.B
+  }
 
   // Outputs
-  io.out.rd := io.in.rd
-  io.out.wr := io.in.wr
-  io.in.valid := Util.stretch(io.out.valid, counterWrap)
-  io.in.waitReq := !Util.stretch(!io.out.waitReq, counterWrap)
+  io.out.rd := io.in.rd && !pendingReg
+  io.out.wr := io.in.wr && !pendingReg
+  io.in.ack := ack
+  io.in.valid := valid
 }
 
 object DataFreezer {
   /**
    * Wraps the given memory interface with a data freezer.
    *
-   * The returned memory interface will operate in the fast clock domain.
+   * The control signals for the memory interface will be transferred to the target clock domain.
    *
-   * @param hold The number of clock cycles to hold the signal.
+   * @param targetClock The target clock domain.
    * @param mem The memory interface.
    */
-  def freeze(hold: Int, mem: AsyncReadWriteMemIO): AsyncReadWriteMemIO = {
-    val freezer = Module(new DataFreezer(hold, mem.addrWidth, mem.dataWidth))
+  def freeze(targetClock: Clock)(mem: AsyncReadWriteMemIO): AsyncReadWriteMemIO = {
+    val freezer = Module(new DataFreezer(mem.addrWidth, mem.dataWidth))
+    freezer.io.targetClock := targetClock
     freezer.io.out <> mem
     freezer.io.in
   }

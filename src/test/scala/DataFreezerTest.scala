@@ -41,37 +41,45 @@ import chiseltest.experimental.UncheckedClockPoke._
 import org.scalatest._
 
 class DataFreezerTest extends FlatSpec with ChiselScalatestTester with Matchers {
-  it should "freeze a read request" in {
-    test(new DataFreezer(hold = 2, addrWidth = 8, dataWidth = 8)) { dut =>
+  behavior of "read request"
+
+  it should "freeze the wait signal" in {
+    test(new DataFreezer(addrWidth = 8, dataWidth = 8)) { dut =>
       // Read
-      dut.io.out.rd.expect(false.B)
       dut.io.in.rd.poke(true.B)
-      dut.io.out.rd.expect(true.B)
 
       // Wait
-      dut.io.out.waitReq.poke(true.B)
-      dut.io.in.waitReq.expect(true.B)
-      dut.io.out.waitReq.poke(false.B)
-      dut.io.in.waitReq.expect(false.B)
+      dut.io.out.ack.poke(true.B)
+      dut.io.in.ack.expect(true.B)
+      dut.clock.step()
+      dut.io.out.ack.poke(false.B)
+      dut.io.in.ack.expect(true.B)
+      dut.clock.step()
+      dut.io.in.ack.expect(true.B)
+      dut.io.targetClock.high()
+      dut.io.targetClock.low()
+      dut.clock.step()
+      dut.io.in.ack.expect(false.B)
+    }
+  }
+
+  it should "freeze the valid signal" in {
+    test(new DataFreezer(addrWidth = 8, dataWidth = 8)) { dut =>
+      // Read
+      dut.io.in.rd.poke(true.B)
 
       // Valid
-//      dut.io.targetClock.low()
-      dut.io.in.valid.expect(false.B)
       dut.io.out.valid.poke(true.B)
-      dut.io.out.dout.poke(1.U)
+      dut.io.in.valid.expect(true.B)
+      dut.clock.step()
+      dut.io.out.valid.poke(false.B)
+      dut.io.in.valid.expect(true.B)
       dut.clock.step()
       dut.io.in.valid.expect(true.B)
-      dut.io.in.dout.expect(1.U)
-//      dut.io.targetClock.high()
-//      dut.io.targetClock.low()
-      dut.io.out.dout.poke(0.U)
-      dut.io.in.valid.expect(true.B)
-      dut.io.in.dout.expect(1.U)
-//      dut.io.targetClock.high()
-//      dut.io.targetClock.low()
+      dut.io.targetClock.high()
+      dut.io.targetClock.low()
       dut.clock.step()
       dut.io.in.valid.expect(false.B)
-      dut.io.in.dout.expect(0.U)
     }
   }
 }

@@ -345,7 +345,7 @@ class SDRAM(config: SDRAMConfig) extends Module {
   }
 
   // Outputs
-  io.mem.waitReq := nextState =/= activeState && request
+  io.mem.ack := nextState === activeState
   io.mem.dout := dataReg.asUInt
   io.mem.valid := RegNext(stateReg === readState && readDone)
   io.sdram.cke := !(stateReg === initState && waitCounterValue === 0.U)

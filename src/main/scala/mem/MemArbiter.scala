@@ -64,11 +64,11 @@ class MemArbiter(n: Int, addrWidth: Int, dataWidth: Int) extends Module {
   val in = io.in(index)
   val out = io.out
 
-  // Assert request signal when there is a pending request
+  // Assert request signal when there is a pending read/write request
   val request = in.rd || in.wr
 
-  // Set pending register when there is a request
-  when(request && !out.waitReq) { pendingReg := index }
+  // Set pending register when a request has been acknowledged
+  when(request && out.ack) { pendingReg := index }
 
   // Default outputs
   out.rd := false.B
@@ -82,20 +82,19 @@ class MemArbiter(n: Int, addrWidth: Int, dataWidth: Int) extends Module {
 
     // Route highest priority input port with a pending request to the output port
     when(request) {
-      out <> in
+      in <> out
       index := i.U
     }
 
-    // Route wait signal to the selected input port. The wait signal is asserted for pending
-    // requests on all other ports.
-    in.waitReq := (i.U === index && out.waitReq) || (i.U =/= index && request)
+    // Route ack signal to the selected input port.
+    in.ack := i.U === index && out.ack
 
     // Route valid signal to the pending input port
     in.valid := i.U === pendingReg && out.valid
 
-    // Route output port data to the selected input port
+    // Route output data to the input port
     in.dout := out.dout
   }
 
-  printf(p"MemArbiter(pending: $pendingReg, index: $index)\n")
+  printf(p"MemArbiter(index: $index, pending: $pendingReg)\n")
 }
