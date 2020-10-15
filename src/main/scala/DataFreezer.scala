@@ -73,13 +73,9 @@ class DataFreezer(addrWidth: Int, dataWidth: Int) extends Module {
   // Assert request signal when there is a pending read/write request
   val request = io.in.rd || io.in.wr
 
-  // Set the pending register when a request is acknowledged. It is cleared by a rising edge of
-  // the target clock.
-  when(clear && ack) {
-    pendingReg := false.B
-  }.elsewhen(request && ack) {
-    pendingReg := true.B
-  }
+  // Set the pending register when a request is acknowledged. It is cleared by a rising edge of the
+  // target clock.
+  when(clear && ack) { pendingReg := false.B }.elsewhen(request && ack) { pendingReg := true.B }
 
   // Outputs
   io.out.rd := io.in.rd && !pendingReg
