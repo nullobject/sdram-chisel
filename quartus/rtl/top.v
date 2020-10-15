@@ -69,9 +69,9 @@ module top (
     .locked(locked)
   );
 
-  Main demo_inst (
-    .clock(sys_clk),
+  Main main_inst (
     .reset(!locked),
+    .clock(sys_clk),
     .io_cpuClock(cpu_clk),
     .io_led(led),
     .io_sdram_cke(sdram_cke),
