@@ -46,60 +46,35 @@ class MemArbiterTest extends FlatSpec with ChiselScalatestTester with Matchers {
 
   it should "select the highest priority input port" in {
     test(mkMemArbiter) { dut =>
+      // Read 0+1
       dut.io.in(0).rd.poke(true.B)
       dut.io.in(0).addr.poke(1.U)
       dut.io.in(1).rd.poke(true.B)
       dut.io.in(1).addr.poke(2.U)
-
-      // Read
       dut.io.out.rd.expect(true.B)
       dut.io.out.addr.expect(1.U)
-      dut.clock.step()
+
+      // Read 1
       dut.io.in(0).rd.poke(false.B)
       dut.io.out.rd.expect(true.B)
-
-      // Valid
-      dut.io.out.valid.poke(true.B)
-      dut.io.out.dout.poke(1.U)
-      dut.io.in(0).valid.expect(true.B)
-      dut.io.in(1).valid.expect(false.B)
-      dut.io.in(0).dout.expect(1.U)
-      dut.clock.step()
-      dut.io.out.valid.poke(false.B)
-
-      // Read
-      dut.io.out.rd.expect(true.B)
       dut.io.out.addr.expect(2.U)
-      dut.clock.step()
-      dut.io.in(1).rd.poke(false.B)
-      dut.io.out.rd.expect(false.B)
-
-      // Valid
-      dut.io.out.valid.poke(true.B)
-      dut.io.out.dout.poke(2.U)
-      dut.io.in(0).valid.expect(false.B)
-      dut.io.in(1).valid.expect(true.B)
-      dut.io.in(1).dout.expect(2.U)
-      dut.clock.step()
-      dut.io.out.valid.poke(false.B)
 
       // Done
+      dut.io.in(1).rd.poke(false.B)
       dut.io.out.rd.expect(false.B)
+      dut.io.out.addr.expect(0.U)
     }
   }
 
-  it should "assert the wait signal on the input ports" in {
+  it should "assert the ack signal on the selected input port" in {
     test(mkMemArbiter) { dut =>
-      dut.io.in(0).addr.poke(1.U)
-      dut.io.in(1).addr.poke(2.U)
+      // Read 0+1
+      dut.io.in(0).rd.poke(true.B)
+      dut.io.in(1).rd.poke(true.B)
       dut.io.in(0).ack.expect(false.B)
       dut.io.in(1).ack.expect(false.B)
 
-      // Read 0
-      dut.io.in(0).rd.poke(true.B)
-      dut.io.in(1).rd.poke(false.B)
-
-      // Wait
+      // Ack 0
       dut.io.out.ack.poke(true.B)
       dut.io.in(0).ack.expect(true.B)
       dut.io.in(1).ack.expect(false.B)
@@ -110,26 +85,56 @@ class MemArbiterTest extends FlatSpec with ChiselScalatestTester with Matchers {
       // Read 1
       dut.io.in(0).rd.poke(false.B)
       dut.io.in(1).rd.poke(true.B)
+      dut.io.in(0).ack.expect(false.B)
+      dut.io.in(1).ack.expect(false.B)
 
-      // Wait
+      // Ack 1
       dut.io.out.ack.poke(true.B)
       dut.io.in(0).ack.expect(false.B)
       dut.io.in(1).ack.expect(true.B)
       dut.io.out.ack.poke(false.B)
       dut.io.in(0).ack.expect(false.B)
       dut.io.in(1).ack.expect(false.B)
+    }
+  }
 
-      // Read 1+2
+  it should "assert the valid signal on the pending input port" in {
+    test(mkMemArbiter) { dut =>
+      // Read 0+1
       dut.io.in(0).rd.poke(true.B)
+      dut.io.in(0).addr.poke(1.U)
       dut.io.in(1).rd.poke(true.B)
+      dut.io.in(1).addr.poke(2.U)
 
-      // Wait
+      // Ack 0
       dut.io.out.ack.poke(true.B)
-      dut.io.in(0).ack.expect(true.B)
-      dut.io.in(1).ack.expect(true.B)
+      dut.clock.step()
+      dut.io.in(0).rd.poke(false.B)
       dut.io.out.ack.poke(false.B)
-      dut.io.in(0).ack.expect(false.B)
-      dut.io.in(1).ack.expect(true.B)
+      dut.io.out.rd.expect(true.B)
+
+      // Valid 0
+      dut.io.out.valid.poke(true.B)
+      dut.io.out.dout.poke(1.U)
+      dut.io.in(0).valid.expect(true.B)
+      dut.io.in(1).valid.expect(false.B)
+      dut.io.in(0).dout.expect(1.U)
+      dut.io.out.valid.poke(false.B)
+
+      // Ack 1
+      dut.io.out.ack.poke(true.B)
+      dut.clock.step()
+      dut.io.in(1).rd.poke(false.B)
+      dut.io.out.ack.poke(false.B)
+      dut.io.out.rd.expect(false.B)
+
+      // Valid 1
+      dut.io.out.valid.poke(true.B)
+      dut.io.out.dout.poke(2.U)
+      dut.io.in(0).valid.expect(false.B)
+      dut.io.in(1).valid.expect(true.B)
+      dut.io.in(1).dout.expect(2.U)
+      dut.io.out.valid.poke(false.B)
     }
   }
 }

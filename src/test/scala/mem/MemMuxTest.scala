@@ -41,67 +41,67 @@ import chisel3._
 import chiseltest._
 import org.scalatest._
 
-class MemMuxTest extends FlatSpec with ChiselScalatestTester with Matchers {
-  private val config = MemMuxConfig(
+trait MemMuxHelpers {
+  protected val config = MemMuxConfig(
     addrWidth = 16,
     dataWidth = 8,
     slots = Seq(
-      SlotConfig(addrWidth = 8, dataWidth = 8),
-      SlotConfig(addrWidth = 8, dataWidth = 8, offset = 0x1000),
-      SlotConfig(addrWidth = 9, dataWidth = 4, offset = 0x2000)
+      SlotConfig(addrWidth = 8, dataWidth = 8, depth = 4),
+      SlotConfig(addrWidth = 8, dataWidth = 8, depth = 4, offset = 0x1000),
     )
   )
+}
 
+class MemMuxTest extends FlatSpec with ChiselScalatestTester with Matchers with MemMuxHelpers {
   it should "prioritize slot requests" in {
     test(new MemMux(config)) { dut =>
+      // Wait for cache init
+      dut.clock.step(4)
+
       // Slot requests
       dut.io.in(0).wr.poke(true.B)
       dut.io.in(0).addr.poke(0.U)
       dut.io.in(0).din.poke(1.U)
+      dut.io.in(0).ack.expect(true.B)
       dut.io.in(1).rd.poke(true.B)
       dut.io.in(1).addr.poke(1.U)
-      dut.io.in(2).rd.poke(true.B)
-      dut.io.in(2).addr.poke(2.U)
+      dut.io.in(1).ack.expect(true.B)
       dut.clock.step()
-
-      // Line fill (slot 0)
       dut.io.in(0).wr.poke(false.B)
+      dut.io.in(1).rd.poke(false.B)
+
+      // Line fill 0
       dut.io.out.rd.expect(true.B)
       dut.io.out.addr.expect(0x0000.U)
+      dut.io.out.ack.poke(true.B)
       dut.clock.step()
-      dut.io.out.valid.poke(true.B)
-      dut.io.out.dout.poke(4.U)
-      dut.clock.step()
-      dut.io.out.valid.poke(false.B)
-      dut.io.in(0).valid.expect(false.B)
+      dut.io.out.ack.poke(false.B)
 
-      // Line fill (slot 1)
-      dut.io.in(1).rd.poke(false.B)
+      // Line fill 1
       dut.io.out.rd.expect(true.B)
       dut.io.out.addr.expect(0x1001.U)
+      dut.io.out.ack.poke(true.B)
+
+      // Done 0
+      dut.io.out.valid.poke(true.B)
+      dut.io.out.dout.poke(1.U)
       dut.clock.step()
+      dut.io.out.ack.poke(false.B)
+
+      // Valid 0
+      dut.io.out.valid.poke(false.B)
+      dut.io.in(0).valid.expect(false.B) // read-only
+      dut.io.out.rd.expect(false.B) // all done
+
+      // Done 1
       dut.io.out.valid.poke(true.B)
       dut.io.out.dout.poke(2.U)
       dut.clock.step()
+
+      // Valid 1
       dut.io.out.valid.poke(false.B)
       dut.io.in(1).valid.expect(true.B)
       dut.io.in(1).dout.expect(2.U)
-
-      // Line fill (slot 2)
-      dut.io.in(2).rd.poke(false.B)
-      dut.io.out.rd.expect(true.B)
-      dut.io.out.addr.expect(0x2001.U)
-      dut.clock.step()
-      dut.io.out.valid.poke(true.B)
-      dut.io.out.dout.poke(0x43.U)
-      dut.clock.step()
-      dut.io.out.valid.poke(false.B)
-      dut.io.in(2).valid.expect(true.B)
-      dut.io.in(2).dout.expect(3.U)
-      dut.clock.step()
-
-      // Done
-      dut.io.out.rd.expect(false.B)
     }
   }
 }

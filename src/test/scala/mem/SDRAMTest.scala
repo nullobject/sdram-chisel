@@ -308,18 +308,16 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
     }
   }
 
-  it should "assert the wait signal when a read is pending" in {
+  it should "assert the ack signal when a read is acknowledged" in {
     test(mkSDRAM()) { dut =>
       waitForIdle(dut)
 
       // Request
       dut.io.mem.rd.poke(true.B)
-      dut.io.mem.ack.expect(false.B)
+      dut.io.mem.ack.expect(true.B)
       waitForActive(dut)
 
       // Wait
-      dut.io.mem.ack.expect(true.B)
-      dut.io.mem.rd.poke(false.B)
       dut.io.mem.ack.expect(false.B)
       waitForRead(dut)
 
@@ -328,9 +326,7 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
       dut.clock.step()
       dut.io.mem.ack.expect(false.B)
       dut.clock.step()
-      dut.io.mem.ack.expect(false.B)
-      dut.io.mem.rd.poke(true.B)
-      dut.io.mem.ack.expect(false.B)
+      dut.io.mem.ack.expect(true.B)
     }
   }
 
@@ -419,18 +415,16 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
     }
   }
 
-  it should "assert the wait signal when a write is pending" in {
+  it should "assert the ack signal when a write is acknowledged" in {
     test(mkSDRAM()) { dut =>
       waitForIdle(dut)
 
       // Request
       dut.io.mem.wr.poke(true.B)
-      dut.io.mem.ack.expect(false.B)
+      dut.io.mem.ack.expect(true.B)
       waitForActive(dut)
 
       // Wait
-      dut.io.mem.ack.expect(true.B)
-      dut.io.mem.wr.poke(false.B)
       dut.io.mem.ack.expect(false.B)
       waitForWrite(dut)
 
@@ -439,9 +433,7 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
       dut.clock.step()
       dut.io.mem.ack.expect(false.B)
       dut.clock.step()
-      dut.io.mem.ack.expect(false.B)
-      dut.io.mem.wr.poke(true.B)
-      dut.io.mem.ack.expect(false.B)
+      dut.io.mem.ack.expect(true.B)
     }
   }
 
@@ -462,16 +454,12 @@ class SDRAMTest extends FlatSpec with ChiselScalatestTester with Matchers with S
     test(mkSDRAM()) { dut =>
       waitForIdle(dut)
       dut.clock.step(9)
-      dut.io.mem.ack.expect(false.B)
       dut.io.mem.rd.poke(true.B)
-      dut.io.mem.ack.expect(true.B)
-      dut.clock.step()
-
-      // Refresh
-      dut.io.debug.refresh.expect(true.B)
-      dut.io.mem.ack.expect(true.B)
+      dut.io.mem.ack.expect(false.B)
       dut.clock.step()
       dut.io.mem.ack.expect(false.B)
+      dut.clock.step()
+      dut.io.mem.ack.expect(true.B)
     }
   }
 }

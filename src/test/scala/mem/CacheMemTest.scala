@@ -75,10 +75,11 @@ trait CacheMemHelpers {
   protected def writeCacheLine(dut: CacheMem, addr: Int, data: Int) = {
     dut.io.in.rd.poke(true.B)
     dut.io.in.addr.poke(addr.U)
-    dut.io.out.ack.poke(false.B)
     dut.clock.step()
     dut.io.in.rd.poke(false.B)
+    dut.io.out.ack.poke(true.B)
     dut.clock.step()
+    dut.io.out.ack.poke(false.B)
     dut.io.out.valid.poke(true.B)
     dut.io.out.dout.poke(data.U)
     dut.clock.step()
@@ -102,14 +103,14 @@ trait CacheMemHelpers {
 class CacheMemTest extends FlatSpec with ChiselScalatestTester with Matchers with CacheMemHelpers {
   behavior of "FSM"
 
-  it should "deassert the wait signal during the idle state" in {
+  it should "assert the ack signal when a request is acknowledged" in {
     test(mkCacheMem()) { dut =>
       dut.io.in.rd.poke(true.B)
-      dut.io.in.ack.expect(true.B)
-      waitForIdle(dut)
       dut.io.in.ack.expect(false.B)
-      waitForCheck(dut)
+      waitForIdle(dut)
       dut.io.in.ack.expect(true.B)
+      waitForCheck(dut)
+      dut.io.in.ack.expect(false.B)
     }
   }
 
@@ -134,6 +135,7 @@ class CacheMemTest extends FlatSpec with ChiselScalatestTester with Matchers wit
   it should "move to the line fill state after a read miss" in {
     test(mkCacheMem()) { dut =>
       dut.io.in.rd.poke(true.B)
+      dut.io.out.ack.poke(true.B)
       waitForCheck(dut)
       dut.clock.step()
       dut.io.debug.lineFill.expect(true.B)
@@ -143,6 +145,7 @@ class CacheMemTest extends FlatSpec with ChiselScalatestTester with Matchers wit
   it should "move to the line fill state after a write miss" in {
     test(mkCacheMem()) { dut =>
       dut.io.in.wr.poke(true.B)
+      dut.io.out.ack.poke(true.B)
       waitForCheck(dut)
       dut.clock.step()
       dut.io.debug.lineFill.expect(true.B)
@@ -156,6 +159,7 @@ class CacheMemTest extends FlatSpec with ChiselScalatestTester with Matchers wit
       writeCache(dut, 0x01, 3)
       dut.io.in.wr.poke(true.B)
       dut.io.in.addr.poke(16.U)
+      dut.io.out.ack.poke(true.B)
       waitForCheck(dut)
       dut.clock.step()
       dut.io.debug.evict.expect(true.B)
@@ -169,6 +173,7 @@ class CacheMemTest extends FlatSpec with ChiselScalatestTester with Matchers wit
       writeCache(dut, 0x01, 3)
       dut.io.in.wr.poke(true.B)
       dut.io.in.addr.poke(16.U)
+      dut.io.out.ack.poke(true.B)
       waitForEvict(dut)
       dut.clock.step()
       dut.io.debug.lineFill.expect(true.B)
@@ -178,6 +183,7 @@ class CacheMemTest extends FlatSpec with ChiselScalatestTester with Matchers wit
   it should "return to the check state after a line fill" in {
     test(mkCacheMem()) { dut =>
       dut.io.in.rd.poke(true.B)
+      dut.io.out.ack.poke(true.B)
       waitForLineFill(dut)
       dut.io.out.valid.poke(true.B)
       dut.clock.step()
@@ -201,6 +207,7 @@ class CacheMemTest extends FlatSpec with ChiselScalatestTester with Matchers wit
       waitForIdle(dut)
       writeCacheLine(dut, 0x00, 0x21)
       dut.io.in.wr.poke(true.B)
+      dut.io.out.ack.poke(true.B)
       waitForCheck(dut)
       dut.clock.step()
       dut.io.debug.idle.expect(true.B)
@@ -249,13 +256,17 @@ class CacheMemTest extends FlatSpec with ChiselScalatestTester with Matchers wit
       dut.io.out.wr.expect(true.B)
       dut.io.out.addr.expect(0x1000.U)
       dut.io.out.din.expect(0x31.U)
+      dut.io.out.ack.poke(true.B)
       dut.clock.step()
+      dut.io.out.ack.poke(false.B)
 
       // Line fill
       dut.io.out.rd.expect(true.B)
       dut.io.out.wr.expect(false.B)
       dut.io.out.addr.expect(0x1008.U)
+      dut.io.out.ack.poke(true.B)
       dut.clock.step()
+      dut.io.out.ack.poke(false.B)
       dut.io.out.valid.poke(true.B)
       dut.io.out.dout.poke(0x43.U)
       dut.io.in.valid.expect(false.B)
@@ -286,7 +297,9 @@ class CacheMemTest extends FlatSpec with ChiselScalatestTester with Matchers wit
       dut.io.out.rd.expect(true.B)
       dut.io.out.wr.expect(false.B)
       dut.io.out.addr.expect(0x1000.U)
+      dut.io.out.ack.poke(true.B)
       dut.clock.step()
+      dut.io.out.ack.poke(false.B)
       dut.io.out.valid.poke(true.B)
       dut.io.out.dout.poke(0x21.U)
       dut.io.in.valid.expect(false.B)
@@ -347,13 +360,17 @@ class CacheMemTest extends FlatSpec with ChiselScalatestTester with Matchers wit
       dut.io.out.wr.expect(true.B)
       dut.io.out.addr.expect(0x1000.U)
       dut.io.out.din.expect(0x31.U)
+      dut.io.out.ack.poke(true.B)
       dut.clock.step()
+      dut.io.out.ack.poke(false.B)
 
       // Line fill
       dut.io.out.rd.expect(true.B)
       dut.io.out.wr.expect(false.B)
       dut.io.out.addr.expect(0x1008.U)
+      dut.io.out.ack.poke(true.B)
       dut.clock.step()
+      dut.io.out.ack.poke(false.B)
       dut.io.out.valid.poke(true.B)
       dut.io.out.dout.poke(0x65.U)
       dut.io.out.rd.expect(false.B)
@@ -389,7 +406,9 @@ class CacheMemTest extends FlatSpec with ChiselScalatestTester with Matchers wit
       dut.io.out.rd.expect(true.B)
       dut.io.out.wr.expect(false.B)
       dut.io.out.addr.expect(0x1000.U)
+      dut.io.out.ack.poke(true.B)
       dut.clock.step()
+      dut.io.out.ack.poke(false.B)
       dut.io.out.valid.poke(true.B)
       dut.io.out.dout.poke(0x21.U)
       dut.io.out.rd.expect(false.B)

@@ -41,8 +41,6 @@ import chiseltest.experimental.UncheckedClockPoke._
 import org.scalatest._
 
 class DataFreezerTest extends FlatSpec with ChiselScalatestTester with Matchers {
-  behavior of "read request"
-
   it should "freeze the wait signal" in {
     test(new DataFreezer(addrWidth = 8, dataWidth = 8)) { dut =>
       // Read
