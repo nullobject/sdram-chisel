@@ -18,6 +18,10 @@ set_output_delay -clock $sys_clk -max 1.5 [get_ports sdram_*]
 # This is tIH in the data sheet (hold time)
 set_output_delay -clock $sys_clk -min 0.8 [get_ports sdram_*]
 
+# Set a multicycle path relationship between the system and CPU clocks
+set_multicycle_path -start -setup -from [get_clocks $sys_clk] -to [get_clocks $cpu_clk] 2
+set_multicycle_path -start -hold -from [get_clocks $sys_clk] -to [get_clocks $cpu_clk] 1
+
 # Constrain I/O ports
 set_false_path -from * -to [get_ports {key*}]
 set_false_path -from * -to [get_ports {led*}]
